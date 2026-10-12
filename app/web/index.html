@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Smart Parking</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>Smart Parking</h1>
+    <div id="session-bar" hidden>
+      <span id="who"></span>
+      <button id="logout-button" type="button" class="secondary">Log out</button>
+    </div>
+  </header>
+
+  <main>
+    <p id="message" role="status" aria-live="polite" hidden></p>
+
+    <!-- Shown when nobody is logged in -->
+    <section id="auth-view" class="grid" hidden>
+      <div class="card">
+        <h2>Log in</h2>
+        <form id="login-form" autocomplete="on">
+          <label>Email <input name="email" type="email" required maxlength="254" autocomplete="username"></label>
+          <label>Password <input name="password" type="password" required maxlength="64" autocomplete="current-password"></label>
+          <button type="submit">Log in</button>
+        </form>
+      </div>
+      <div class="card">
+        <h2>Create a driver account</h2>
+        <form id="register-form">
+          <label>Email <input name="email" type="email" required maxlength="254" autocomplete="username"></label>
+          <label>Password <input name="password" type="password" required minlength="15" maxlength="64" autocomplete="new-password"></label>
+          <button type="submit">Create account</button>
+        </form>
+        <p class="hint">15 to 64 characters. Use synthetic test data only.</p>
+      </div>
+    </section>
+
+    <!-- Driver -->
+    <section id="driver-view" class="grid" hidden>
+      <div class="card">
+        <h2>My vehicles</h2>
+        <ul id="vehicle-list" class="list"></ul>
+        <form id="vehicle-form" class="inline">
+          <label>License plate <input name="plate" required maxlength="20" placeholder="ABC 1234"></label>
+          <button type="submit">Add</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <h2>Reserve a spot</h2>
+        <form id="reservation-form">
+          <label>Vehicle <select name="vehicle_id" id="vehicle-select" required></select></label>
+          <label>Spot <select name="spot_id" id="spot-select" required></select></label>
+          <label>Start <input name="start" type="datetime-local" required></label>
+          <label>End <input name="end" type="datetime-local" required></label>
+          <button type="submit">Reserve</button>
+        </form>
+      </div>
+
+      <div class="card wide">
+        <h2>My reservations</h2>
+        <table>
+          <thead><tr><th>Spot</th><th>Vehicle</th><th>Start</th><th>End</th><th></th></tr></thead>
+          <tbody id="reservation-rows"></tbody>
+        </table>
+      </div>
+
+      <div class="card wide danger">
+        <h2>Delete my account</h2>
+        <p>This deletes your email, password, vehicles, reservations and parking history.</p>
+        <form id="delete-form" class="inline">
+          <label>Password <input name="password" type="password" required maxlength="64" autocomplete="current-password"></label>
+          <button type="submit" class="danger-button">Delete my account</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- Admin -->
+    <section id="admin-view" class="grid" hidden>
+      <div class="card wide">
+        <h2>Parking spots</h2>
+        <p class="hint">Reserved times are shown without the driver's identity.</p>
+        <table>
+          <thead><tr><th>Spot</th><th>Status</th><th>Reserved times</th><th></th></tr></thead>
+          <tbody id="spot-rows"></tbody>
+        </table>
+      </div>
+      <div class="card wide">
+        <h2>Audit log</h2>
+        <table>
+          <thead><tr><th>Time</th><th>Action</th><th>User ID</th><th>Target ID</th><th>IP address</th></tr></thead>
+          <tbody id="audit-rows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Support agent -->
+    <section id="support-view" class="grid" hidden>
+      <div class="card wide">
+        <h2>Open disputes</h2>
+        <p>Dispute handling will be added in a later phase.</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

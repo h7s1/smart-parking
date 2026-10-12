@@ -1,0 +1,12 @@
+# Secrets and local data: never commit these (SR-18)
+.env
+certs/
+instance/
+*.db
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/

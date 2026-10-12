@@ -1,0 +1,96 @@
+"""Application settings.
+
+Secrets are never written in the source code. The encryption key is read from
+the environment (or a local .env file that is excluded from Git) once, when the
+application starts (SR-18).
+"""
+import base64
+import os
+from datetime import datetime, timezone
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def utc_now():
+    return datetime.now(timezone.utc)
+
+
+class Config:
+    DATABASE = str(BASE_DIR / "instance" / "smart_parking.db")
+
+    # Set from SP_ENCRYPTION_KEY: 32 random bytes, base64-encoded (SR-18).
+    ENCRYPTION_KEY = None
+
+    # SR-10: bcrypt work factor of at least 10. 12 is the default here.
+    BCRYPT_ROUNDS = 12
+
+    # PROPOSED-5: NIST SP 800-63B-4 (report reference [1]) asks for at least
+    # 15 characters when the password is the only factor, and for allowing at
+    # least 64.
+    MIN_PASSWORD_LENGTH = 15
+    MAX_PASSWORD_LENGTH = 64
+
+    # SR-02: block login for 15 minutes after 5 consecutive failed attempts.
+    LOCKOUT_THRESHOLD = 5
+    LOCKOUT_MINUTES = 15
+
+    # PROPOSED-2: end a session after 30 minutes without activity.
+    SESSION_IDLE_MINUTES = 30
+    SESSION_COOKIE_NAME = "sp_session"
+
+    # SR-19: reject a client after 60 requests in one minute.
+    RATE_LIMIT_PER_MINUTE = 60
+
+    # FR-07: a reservation can be cancelled up to 30 minutes before it starts.
+    CANCEL_DEADLINE_MINUTES = 30
+
+    # Assumption (not in the report yet): one reservation lasts at most 24 hours.
+    MAX_RESERVATION_HOURS = 24
+
+    # Reject request bodies larger than 16 KB (input handling, SR-14).
+    MAX_CONTENT_LENGTH = 16 * 1024
+
+    # The clock is a setting so that tests can move time forward
+    # (for example, to check that a 15-minute block ends).
+    CLOCK = staticmethod(utc_now)
+
+
+def load_env_file(path=BASE_DIR / ".env"):
+    """Copy KEY=VALUE lines from a local .env file into the environment.
+
+    Values that are already set in the environment are kept.
+    """
+    if not path.exists():
+        return
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        os.environ.setdefault(key.strip(), value.strip())
+
+
+def settings_from_environment():
+    load_env_file()
+    settings = {"ENCRYPTION_KEY": os.environ.get("SP_ENCRYPTION_KEY")}
+    if os.environ.get("SP_DATABASE"):
+        settings["DATABASE"] = os.environ["SP_DATABASE"]
+    return settings
+
+
+def check_settings(config):
+    """Refuse to start with unsafe settings (fail securely)."""
+    key = config.get("ENCRYPTION_KEY")
+    if not key:
+        raise RuntimeError(
+            "SP_ENCRYPTION_KEY is not set. Run: python scripts/setup_dev.py"
+        )
+    try:
+        raw = base64.b64decode(key, validate=True)
+    except ValueError:
+        raw = b""
+    if len(raw) != 32:
+        raise RuntimeError("SP_ENCRYPTION_KEY must be 32 bytes, base64-encoded.")
+    if config.get("BCRYPT_ROUNDS", 0) < 10:
+        raise RuntimeError("BCRYPT_ROUNDS must be at least 10 (SR-10).")
