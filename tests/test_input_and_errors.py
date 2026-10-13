@@ -1,14 +1,20 @@
 """Input validation, SQL injection, error messages, request limits and settings
-(SR-10, SR-14 to SR-16, SR-18, SR-19)."""
+(SR-10, SR-14 to SR-19)."""
 import ast
 import base64
+import importlib.util
 import os
+import sqlite3
+import tempfile
 import unittest
 from pathlib import Path
 
-from helpers import PASSWORD, AppTestCase
+from helpers import GATE_KEY, PASSWORD, AppTestCase
 
 from app import create_app
+from app.data_access.db import check_database_file, connect, create_schema
+
+SCRIPTS_DIR = Path(__file__).resolve().parent.parent / "scripts"
 
 DATA_ACCESS_DIR = Path(__file__).resolve().parent.parent / "app" / "data_access"
 LEAK_SIGNS = ("Traceback", "sqlite", "SELECT", 'File "', "Werkzeug", "line ")
@@ -101,7 +107,7 @@ class ErrorMessageTests(AppTestCase):
 class RequestProtectionTests(AppTestCase):
 
     def test_changes_must_be_sent_as_json(self):
-        """PROPOSED-4 (negative): a form posted from another website is refused."""
+        """SR-24 (negative): a form posted from another website is refused."""
         response = self.client().post("/api/login", data={"email": "a@test.example", "password": PASSWORD})
         self.assertEqual(response.status_code, 415)
 
@@ -138,7 +144,46 @@ class SettingsTests(unittest.TestCase):
         """SR-10"""
         key = base64.b64encode(os.urandom(32)).decode()
         with self.assertRaises(RuntimeError):
-            create_app({"DATABASE": ":memory:", "ENCRYPTION_KEY": key, "BCRYPT_ROUNDS": 8})
+            create_app({"DATABASE": ":memory:", "ENCRYPTION_KEY": key, "BCRYPT_ROUNDS": 8,
+                        "GATE_KEY": GATE_KEY})
+
+    def test_app_refuses_to_start_without_a_strong_gate_key(self):
+        """SR-17: the gate key comes from .env, never from the code."""
+        key = base64.b64encode(os.urandom(32)).decode()
+        for gate_key in (None, "", "short-key"):
+            with self.assertRaises(RuntimeError):
+                create_app({"DATABASE": ":memory:", "ENCRYPTION_KEY": key, "GATE_KEY": gate_key})
+
+    def test_setup_adds_missing_gate_key_and_keeps_the_encryption_key(self):
+        """SR-17, SR-18: running setup again never replaces a key."""
+        spec = importlib.util.spec_from_file_location("setup_dev", SCRIPTS_DIR / "setup_dev.py")
+        setup_dev = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(setup_dev)
+        with tempfile.TemporaryDirectory() as folder:
+            env_file = Path(folder) / ".env"
+            env_file.write_text("SP_ENCRYPTION_KEY=old-key-stays\n", encoding="utf-8")
+            setup_dev.ENV_FILE = env_file
+            setup_dev.print = lambda *args, **kwargs: None
+            setup_dev.create_env_file()
+            setup_dev.create_env_file()                 # a second run changes nothing
+            lines = env_file.read_text(encoding="utf-8").splitlines()
+        self.assertEqual(lines[0], "SP_ENCRYPTION_KEY=old-key-stays")
+        self.assertEqual(len([line for line in lines if line.startswith("SP_GATE_KEY=")]), 1)
+        self.assertGreaterEqual(len(lines[1].split("=", 1)[1]), 32)
+
+    def test_old_database_is_refused_at_start_up(self):
+        """A database made by the Week 8 code lacks new columns: start-up stops with a clear message."""
+        with tempfile.TemporaryDirectory() as folder:
+            old, new = os.path.join(folder, "old.db"), os.path.join(folder, "new.db")
+            sqlite3.connect(old).close()
+            conn = connect(new)
+            create_schema(conn)
+            conn.close()
+            with self.assertRaisesRegex(RuntimeError, "--reset"):
+                check_database_file(old)
+            check_database_file(new)
+            with self.assertRaisesRegex(RuntimeError, "init_db"):
+                check_database_file(os.path.join(folder, "missing.db"))
 
 
 if __name__ == "__main__":

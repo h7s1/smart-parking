@@ -1,9 +1,8 @@
 """Audit log table. Parameterized queries only (SR-15).
 
-There is no update function, and no delete function: entries can only be
-added and read. The database triggers in schema.sql also block changes
-(PROPOSED-3). Deleting entries older than 180 days (PR-10) will be added with
-the cleanup job in a later phase.
+There is no update function. The only delete is delete_expired(), used by the
+cleanup job for entries older than 180 days (PR-10). The database triggers in
+schema.sql also block changes and early deletes (SR-23).
 """
 from .db import get_db
 
@@ -22,3 +21,18 @@ def list_recent(limit):
         " ORDER BY created_at DESC, rowid DESC LIMIT ?",
         (limit,),
     ).fetchall()
+
+
+def delete_expired(cutoff, retention_days):
+    """PR-10: delete entries created before the cutoff.
+
+    The second condition repeats the 180-day rule with the database's own
+    clock, the same rule the trigger in schema.sql enforces, so this delete
+    can never be blocked half-way by the trigger.
+    """
+    cursor = get_db().execute(
+        "DELETE FROM audit_log WHERE created_at < ?"
+        " AND created_at <= strftime('%Y-%m-%d %H:%M:%S', 'now', ?)",
+        (cutoff, f"-{int(retention_days)} days"),
+    )
+    return cursor.rowcount

@@ -41,7 +41,7 @@ def email(data):
 
 
 def new_password(data):
-    """Password rules for registration (PROPOSED-5)."""
+    """Password rules for registration (SR-22)."""
     value = data.get("password")
     low = current_app.config["MIN_PASSWORD_LENGTH"]
     high = current_app.config["MAX_PASSWORD_LENGTH"]
@@ -119,3 +119,15 @@ def choice(data, field, label, allowed):
     if value not in allowed:
         raise ValidationError(f"{label} must be one of: {', '.join(allowed)}.")
     return value
+
+
+def dispute_subject(data):
+    """FR-15: a dispute is about exactly one reservation or one parking session.
+    Returns (reservation_id, parking_session_id), one of them None."""
+    has_reservation = data.get("reservation_id") is not None
+    has_session = data.get("parking_session_id") is not None
+    if has_reservation == has_session:
+        raise ValidationError("Choose one reservation or one parking session.")
+    if has_reservation:
+        return body_id(data, "reservation_id", "Reservation"), None
+    return None, body_id(data, "parking_session_id", "Parking session")

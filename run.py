@@ -3,13 +3,16 @@
 The server only runs over HTTPS (SR-13). It uses the certificate created by
 scripts/setup_dev.py. Flask's built-in server is fine for this prototype but
 is not meant for production.
+
+The cleanup job (PR-07 to PR-10) runs when the server starts and then once a day.
 """
 import sys
 from pathlib import Path
 
 from werkzeug.serving import WSGIRequestHandler
 
-from app import create_app
+from app import cleanup, create_app
+from app.data_access.db import check_database_file
 
 BASE_DIR = Path(__file__).resolve().parent
 CERT_FILE = BASE_DIR / "certs" / "dev-cert.pem"
@@ -21,11 +24,18 @@ WSGIRequestHandler.sys_version = ""
 
 
 def main():
-    app = create_app()
+    try:
+        app = create_app()            # refuses to start without valid keys (SR-17, SR-18)
+    except RuntimeError as error:
+        sys.exit(str(error))
     if not (CERT_FILE.exists() and KEY_FILE.exists()):
         sys.exit("No TLS certificate found. Run: python scripts/setup_dev.py")
-    if not Path(app.config["DATABASE"]).exists():
-        sys.exit("No database found. Run: python scripts/init_db.py")
+    try:
+        check_database_file(app.config["DATABASE"])
+    except RuntimeError as error:
+        sys.exit(str(error))
+
+    cleanup.start_daily(app)          # flow 9: now, then every 24 hours
 
     # debug=False: the debug page would show source code and let anyone run
     # commands on the server from the browser.

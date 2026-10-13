@@ -1,7 +1,8 @@
-"""One-time setup for a developer laptop.
+"""Setup for a developer laptop. Safe to run again: it never replaces a key.
 
-1. Creates .env with a new random encryption key (SR-18). The .env file is
-   listed in .gitignore, so the key never goes into the repository.
+1. Creates .env with a new random encryption key (SR-18) and gate key (SR-17).
+   The .env file is listed in .gitignore, so the keys never go into the
+   repository. If .env already exists, only missing keys are added.
 2. Creates a self-signed TLS certificate for https://localhost (SR-13).
 
 Run from the project folder:  python scripts/setup_dev.py
@@ -9,6 +10,7 @@ Run from the project folder:  python scripts/setup_dev.py
 import base64
 import ipaddress
 import os
+import secrets
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -23,20 +25,38 @@ ENV_FILE = BASE_DIR / ".env"
 CERT_DIR = BASE_DIR / "certs"
 
 
+def _new_keys():
+    return {
+        "SP_ENCRYPTION_KEY": base64.b64encode(os.urandom(32)).decode("ascii"),
+        "SP_GATE_KEY": secrets.token_urlsafe(32),      # 43 characters
+    }
+
+
 def create_env_file():
-    if ENV_FILE.exists():
-        # Never replace an existing key: data encrypted with it could no longer be read.
-        print(".env already exists; keeping the current key.")
+    keys = _new_keys()
+    if not ENV_FILE.exists():
+        lines = ["# Local secrets. Never commit this file."]
+        lines += [f"{name}={value}" for name, value in keys.items()]
+        ENV_FILE.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        if os.name != "nt":
+            ENV_FILE.chmod(0o600)        # readable by the owner only
+        print("Created .env with a new encryption key and gate key.")
         return
-    key = base64.b64encode(os.urandom(32)).decode("ascii")
-    ENV_FILE.write_text(
-        "# Local secrets. Never commit this file.\n"
-        f"SP_ENCRYPTION_KEY={key}\n",
-        encoding="utf-8",
-    )
-    if os.name != "nt":
-        ENV_FILE.chmod(0o600)        # readable by the owner only
-    print("Created .env with a new encryption key.")
+
+    # Never replace an existing key: data encrypted with it could no longer be
+    # read. Only add the keys that are missing (for example, the gate key that
+    # was added in Week 9).
+    text = ENV_FILE.read_text(encoding="utf-8")
+    present = {line.split("=", 1)[0].strip() for line in text.splitlines() if "=" in line}
+    missing = [name for name in keys if name not in present]
+    if not missing:
+        print(".env already exists; keeping the current keys.")
+        return
+    if text and not text.endswith("\n"):
+        text += "\n"
+    text += "".join(f"{name}={keys[name]}\n" for name in missing)
+    ENV_FILE.write_text(text, encoding="utf-8")
+    print(f".env already exists; kept the current keys and added: {', '.join(missing)}.")
 
 
 def create_dev_certificate():

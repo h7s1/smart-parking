@@ -4,7 +4,7 @@ from datetime import timedelta
 
 from flask import current_app
 
-from .. import clock
+from .. import clock, notification
 from ..data_access import reservations_repo, spots_repo, vehicles_repo
 from ..data_access.db import transaction
 from ..errors import Conflict, NotFound, ValidationError
@@ -48,13 +48,16 @@ def create(driver_id, vehicle_id, spot_id, start, end):
             clock.to_db(clock.now()),
         )
 
-    return {
+    reservation = {
         "id": reservation_id,
         "spot": spot["label"],
         "vehicle_id": vehicle_id,
         "start": clock.db_to_api(start_db),
         "end": clock.db_to_api(end_db),
     }
+    # FR-08, flow 10: the email is sent only after the reservation is saved.
+    notification.send_reservation_confirmation(driver_id, reservation)
+    return reservation
 
 
 def list_for_driver(driver_id):

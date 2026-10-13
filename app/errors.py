@@ -28,6 +28,12 @@ class LoginFailed(AppError):
     message = "Login failed. Check your email and password, or try again later."
 
 
+class Forbidden(AppError):
+    """The user is logged in but may not do this (SR-04, SR-06)."""
+    status = 403
+    message = "You do not have permission to do this."
+
+
 class NotFound(AppError):
     """Also used when a record exists but belongs to someone else, so a driver
     cannot learn which IDs exist (SR-05)."""

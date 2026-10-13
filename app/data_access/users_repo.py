@@ -47,3 +47,19 @@ def delete(user_id):
     """Deletes the user. ON DELETE CASCADE in schema.sql also deletes the user's
     vehicles, reservations, parking sessions, disputes and login sessions (PR-11)."""
     get_db().execute("DELETE FROM users WHERE id = ?", (user_id,))
+
+
+def list_inactive(cutoff):
+    """Accounts with no login since the cutoff (or never, if created before it).
+
+    An account whose car is parked right now is skipped, so deleting it does
+    not leave a spot OCCUPIED.
+    """
+    return get_db().execute(
+        "SELECT id FROM users"
+        " WHERE COALESCE(last_login_at, created_at) < ?"
+        " AND NOT EXISTS (SELECT 1 FROM parking_sessions ps"
+        "                 JOIN vehicles v ON v.id = ps.vehicle_id"
+        "                 WHERE v.owner_id = users.id AND ps.exit_time IS NULL)",
+        (cutoff,),
+    ).fetchall()

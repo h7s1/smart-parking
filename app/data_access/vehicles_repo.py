@@ -14,7 +14,8 @@ def insert(vehicle_id, owner_id, plate_enc, created_at):
 
 
 def list_plate_ciphertexts():
-    """All encrypted plates, used to check that a new plate is unique (FR-04)."""
+    """All encrypted plates, used to check that a new plate is unique (FR-04)
+    and to find the vehicle at the gate (FR-09)."""
     return get_db().execute("SELECT id, plate_enc FROM vehicles").fetchall()
 
 

@@ -33,3 +33,12 @@ def touch(token_hash, at):
 
 def delete(token_hash):
     get_db().execute("DELETE FROM login_sessions WHERE token_hash = ?", (token_hash,))
+
+
+def delete_idle(cutoff):
+    """Remove login sessions with no activity since the cutoff. They already
+    stopped working after 30 minutes (SR-21); this removes the rows."""
+    cursor = get_db().execute(
+        "DELETE FROM login_sessions WHERE last_seen_at < ?", (cutoff,)
+    )
+    return cursor.rowcount

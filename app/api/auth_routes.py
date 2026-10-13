@@ -42,7 +42,7 @@ def login():
 @bp.post("/logout")
 @login_required
 def logout():
-    """PROPOSED-1: logging out ends the session on the server."""
+    """SR-20: logging out ends the session on the server."""
     sessions.end()
     response = jsonify(message="Logged out.")
     sessions.clear_cookie(response)

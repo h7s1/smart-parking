@@ -5,9 +5,9 @@ from datetime import timedelta
 from flask import current_app
 
 from .. import clock
-from ..data_access import users_repo
+from ..data_access import parking_sessions_repo, users_repo
 from ..data_access.db import transaction
-from ..errors import LoginFailed, ValidationError
+from ..errors import Conflict, LoginFailed, ValidationError
 from ..security import audit, crypto, passwords
 
 DRIVER = "DRIVER"
@@ -128,6 +128,9 @@ def delete_driver_account(user_id, password):
     user = users_repo.get(user_id)
     if user is None or not passwords.verify_password(password, user["password_hash"]):
         raise ValidationError("The password is not correct.")
-    with transaction():
+    with transaction(immediate=True):
+        if parking_sessions_repo.owner_has_open_session(user_id):
+            # Deleting now would leave the spot OCCUPIED with no session behind it.
+            raise Conflict("The account cannot be deleted while one of your vehicles is parked.")
         users_repo.delete(user_id)      # cascades to vehicles, reservations, sessions, disputes
         audit.record(audit.ACCOUNT_DELETED, user_id=user_id, target_id=user_id)  # SR-08

@@ -1,8 +1,8 @@
 """Application settings.
 
-Secrets are never written in the source code. The encryption key is read from
-the environment (or a local .env file that is excluded from Git) once, when the
-application starts (SR-18).
+Secrets are never written in the source code. The encryption key and the gate
+key are read from the environment (or a local .env file that is excluded from
+Git) once, when the application starts (SR-17, SR-18).
 """
 import base64
 import os
@@ -22,10 +22,14 @@ class Config:
     # Set from SP_ENCRYPTION_KEY: 32 random bytes, base64-encoded (SR-18).
     ENCRYPTION_KEY = None
 
+    # Set from SP_GATE_KEY: the shared secret the gate simulator sends with
+    # every gate event (SR-17). At least 32 characters.
+    GATE_KEY = None
+
     # SR-10: bcrypt work factor of at least 10. 12 is the default here.
     BCRYPT_ROUNDS = 12
 
-    # PROPOSED-5: NIST SP 800-63B-4 (report reference [1]) asks for at least
+    # SR-22: NIST SP 800-63B-4 (report reference [1]) asks for at least
     # 15 characters when the password is the only factor, and for allowing at
     # least 64.
     MIN_PASSWORD_LENGTH = 15
@@ -35,7 +39,7 @@ class Config:
     LOCKOUT_THRESHOLD = 5
     LOCKOUT_MINUTES = 15
 
-    # PROPOSED-2: end a session after 30 minutes without activity.
+    # SR-21: end a session after 30 minutes without activity.
     SESSION_IDLE_MINUTES = 30
     SESSION_COOKIE_NAME = "sp_session"
 
@@ -50,6 +54,21 @@ class Config:
 
     # Reject request bodies larger than 16 KB (input handling, SR-14).
     MAX_CONTENT_LENGTH = 16 * 1024
+
+    # Retention periods from the Personal Data Map (PR-07 to PR-10).
+    PARKING_SESSION_RETENTION_DAYS = 90      # PR-07, after the entry time
+    RESERVATION_RETENTION_DAYS = 30          # PR-08, after the reservation ends
+    DISPUTE_RETENTION_DAYS = 90              # PR-09, after the dispute is closed
+    AUDIT_RETENTION_DAYS = 180               # PR-10, after the entry is created
+    INACTIVE_ACCOUNT_DAYS = 365              # data map: 12 months without a login
+
+    # The cleanup job runs when the server starts and then once a day (flow 9).
+    CLEANUP_INTERVAL_HOURS = 24
+
+    # FR-08: how the confirmation email is sent. The prototype only prints a
+    # simulated email to the server console (see app/notification.py). Tests
+    # replace it to check what would have been sent.
+    EMAIL_SENDER = None
 
     # The clock is a setting so that tests can move time forward
     # (for example, to check that a 15-minute block ends).
@@ -73,7 +92,10 @@ def load_env_file(path=BASE_DIR / ".env"):
 
 def settings_from_environment():
     load_env_file()
-    settings = {"ENCRYPTION_KEY": os.environ.get("SP_ENCRYPTION_KEY")}
+    settings = {
+        "ENCRYPTION_KEY": os.environ.get("SP_ENCRYPTION_KEY"),
+        "GATE_KEY": os.environ.get("SP_GATE_KEY"),
+    }
     if os.environ.get("SP_DATABASE"):
         settings["DATABASE"] = os.environ["SP_DATABASE"]
     return settings
@@ -94,3 +116,8 @@ def check_settings(config):
         raise RuntimeError("SP_ENCRYPTION_KEY must be 32 bytes, base64-encoded.")
     if config.get("BCRYPT_ROUNDS", 0) < 10:
         raise RuntimeError("BCRYPT_ROUNDS must be at least 10 (SR-10).")
+    gate_key = config.get("GATE_KEY")
+    if not gate_key or len(gate_key) < 32:
+        raise RuntimeError(
+            "SP_GATE_KEY is not set or is too short. Run: python scripts/setup_dev.py"
+        )

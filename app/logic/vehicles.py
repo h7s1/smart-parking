@@ -2,7 +2,7 @@
 import uuid
 
 from .. import clock
-from ..data_access import vehicles_repo
+from ..data_access import parking_sessions_repo, vehicles_repo
 from ..data_access.db import transaction
 from ..errors import Conflict, NotFound
 from ..security import crypto
@@ -31,6 +31,11 @@ def list_vehicles(owner_id):
 
 def remove_vehicle(owner_id, vehicle_id):
     """FR-05. If the vehicle is not this driver's, the answer is "Not found",
-    exactly as if it did not exist (SR-05)."""
-    if vehicles_repo.delete_for_owner(vehicle_id, owner_id) == 0:
-        raise NotFound()
+    exactly as if it did not exist (SR-05). A car that is parked right now
+    cannot be removed, so its spot is not left OCCUPIED."""
+    with transaction(immediate=True):
+        if vehicles_repo.get_for_owner(vehicle_id, owner_id) is None:
+            raise NotFound()
+        if parking_sessions_repo.get_open_for_vehicle(vehicle_id) is not None:
+            raise Conflict("A vehicle that is parked cannot be removed. Remove it after it leaves.")
+        vehicles_repo.delete_for_owner(vehicle_id, owner_id)

@@ -25,6 +25,7 @@ from app.logic import accounts                              # noqa: E402
 PASSWORD = "correct horse battery staple"        # 28 characters, synthetic
 ADMIN_EMAIL = "admin@test.example"
 SUPPORT_EMAIL = "support@test.example"
+GATE_KEY = "test-gate-key-" + "x" * 30             # synthetic, test only
 
 
 class HttpsTestClient(FlaskClient):
@@ -57,12 +58,16 @@ class AppTestCase(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory()
         self.db_path = os.path.join(self._tmp.name, "test.db")
         self.clock = FakeClock()
+        self.sent_emails = []                      # FR-08: what would have been sent
         self.app = create_app({
             "DATABASE": self.db_path,
             "ENCRYPTION_KEY": base64.b64encode(os.urandom(32)).decode("ascii"),
+            "GATE_KEY": GATE_KEY,
             "BCRYPT_ROUNDS": 10,                   # the minimum SR-10 allows
             "CLOCK": self.clock,
             "RATE_LIMIT_PER_MINUTE": self.rate_limit,
+            "EMAIL_SENDER": lambda to, subject, body: self.sent_emails.append(
+                {"to": to, "subject": subject, "body": body}),
         })
         self.app.test_client_class = HttpsTestClient
         conn = connect(self.db_path)
@@ -113,6 +118,17 @@ class AppTestCase(unittest.TestCase):
             "start": iso(start),
             "end": iso(start + timedelta(hours=hours)),
         })
+
+    def gate(self, plate, direction="ENTRY", key=GATE_KEY):
+        """Send one gate event, as the gate simulator does."""
+        headers = {} if key is None else {"X-Gate-Key": key}
+        return self.client().post("/api/gate/events", headers=headers,
+                                  json={"plate": plate, "direction": direction})
+
+    def decision(self, plate, direction="ENTRY"):
+        response = self.gate(plate, direction)
+        self.assertEqual(response.status_code, 200, response.get_json())
+        return response.get_json()["decision"]
 
     def query(self, sql, params=()):
         """Read the database directly, as an attacker with a stolen copy would."""

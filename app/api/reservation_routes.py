@@ -1,9 +1,9 @@
-"""Spot and reservation routes (drivers only)."""
+"""Spot, reservation and parking history routes (drivers only)."""
 from flask import g, jsonify
 
 from . import bp, validation
 from .guards import roles_required
-from ..logic import reservations
+from ..logic import gate, reservations
 from ..logic.accounts import DRIVER
 
 
@@ -40,3 +40,10 @@ def cancel_reservation(reservation_id):
     """FR-07, NFR-03."""
     reservations.cancel(g.user["id"], validation.path_id(reservation_id))
     return jsonify(message="Reservation cancelled.")
+
+
+@bp.get("/parking-history")
+@roles_required(DRIVER)
+def parking_history():
+    """The driver's own parking sessions. Read only: no route changes them (SR-12)."""
+    return jsonify(parking_sessions=gate.history_for_driver(g.user["id"]))

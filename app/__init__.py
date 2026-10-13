@@ -55,7 +55,7 @@ def create_app(test_config=None):
         # SR-19: request limit per client.
         if not limiter.allow(request.remote_addr or "unknown", clock.now()):
             return _error(429, _HTTP_MESSAGES[429])
-        # PROPOSED-4: requests that change data must be JSON. A form on another
+        # SR-24: requests that change data must be JSON. A form on another
         # website cannot send JSON to this server, which, together with the
         # SameSite cookie, blocks cross-site request forgery.
         if request.method in ("POST", "PUT", "PATCH") and not request.is_json:

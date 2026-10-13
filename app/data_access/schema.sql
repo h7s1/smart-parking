@@ -64,19 +64,23 @@ CREATE INDEX IF NOT EXISTS idx_reservations_spot_time ON reservations(spot_id, s
 CREATE INDEX IF NOT EXISTS idx_reservations_driver ON reservations(driver_id);
 
 -- Parking history: linked by vehicle ID only, with no plate or email (PR-05).
--- Filled by the gate decision service in a later phase.
+-- Filled by the gate decision (FR-10, FR-11). spot_id records which spot the
+-- car took, so the spot can be set to OCCUPIED on entry and back to FREE on
+-- exit (FR-12). exit_time is NULL while the car is still inside.
 CREATE TABLE IF NOT EXISTS parking_sessions (
-    id          TEXT PRIMARY KEY,
+    id          TEXT PRIMARY KEY,                   -- random UUID (SR-07)
     vehicle_id  TEXT NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
+    spot_id     TEXT NOT NULL REFERENCES spots(id),
     entry_time  TEXT NOT NULL,
     exit_time   TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_parking_sessions_vehicle ON parking_sessions(vehicle_id);
 
--- Disputes: the reason comes from a fixed list, so there is no free text that
--- could hold extra personal data. Used in a later phase.
+-- Disputes (FR-15 to FR-17): the reason comes from a fixed list, so there is
+-- no free text that could hold extra personal data. While a driver has an OPEN
+-- dispute, a support agent can see that driver's data (SR-06).
 CREATE TABLE IF NOT EXISTS disputes (
-    id                  TEXT PRIMARY KEY,
+    id                  TEXT PRIMARY KEY,           -- random UUID (SR-07)
     driver_id           TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     reservation_id      TEXT REFERENCES reservations(id) ON DELETE CASCADE,
     parking_session_id  TEXT REFERENCES parking_sessions(id) ON DELETE CASCADE,
@@ -91,6 +95,7 @@ CREATE TABLE IF NOT EXISTS disputes (
     -- A dispute is about exactly one reservation or one parking session.
     CHECK ((reservation_id IS NULL) <> (parking_session_id IS NULL))
 );
+CREATE INDEX IF NOT EXISTS idx_disputes_driver_status ON disputes(driver_id, status);
 
 -- Audit log: IDs only, never emails or plates (PR-06).
 -- user_id has no foreign key on purpose: the data map keeps the ID in audit
@@ -105,7 +110,7 @@ CREATE TABLE IF NOT EXISTS audit_log (
 );
 CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(created_at);
 
--- PROPOSED-3: audit entries cannot be changed by anyone, and cannot be deleted
+-- SR-23: audit entries cannot be changed by anyone, and cannot be deleted
 -- before they are 180 days old (PR-10). Enforced inside the database, so even
 -- a bug in the application code cannot rewrite the log.
 CREATE TRIGGER IF NOT EXISTS audit_log_no_update
@@ -120,3 +125,7 @@ WHEN OLD.created_at > strftime('%Y-%m-%d %H:%M:%S', 'now', '-180 days')
 BEGIN
     SELECT RAISE(ABORT, 'audit log entries can only be deleted after 180 days');
 END;
+
+-- Schema version. run.py refuses to start with a database made by an older
+-- version, instead of failing later on a missing column.
+PRAGMA user_version = 2;

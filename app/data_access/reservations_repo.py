@@ -62,3 +62,27 @@ def list_times_from(from_time):
         " WHERE end_time > ? ORDER BY start_time",
         (from_time,),
     ).fetchall()
+
+
+def find_covering(vehicle_id, at):
+    """FR-09: a reservation for this vehicle that covers the given time."""
+    return get_db().execute(
+        "SELECT id, spot_id FROM reservations"
+        " WHERE vehicle_id = ? AND start_time <= ? AND end_time > ?"
+        " ORDER BY start_time LIMIT 1",
+        (vehicle_id, at, at),
+    ).fetchone()
+
+
+def delete_expired(cutoff):
+    """PR-08: delete reservations that ended before the cutoff, unless they are
+    linked to an open dispute."""
+    cursor = get_db().execute(
+        "DELETE FROM reservations"
+        " WHERE end_time < ?"
+        " AND NOT EXISTS (SELECT 1 FROM disputes d"
+        "                 WHERE d.reservation_id = reservations.id"
+        "                 AND d.status = 'OPEN')",
+        (cutoff,),
+    )
+    return cursor.rowcount

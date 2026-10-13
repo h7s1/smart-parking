@@ -120,7 +120,7 @@ class SessionTests(AppTestCase):
             self.assertEqual(stranger.get(path).status_code, 401, path)
 
     def test_logout_ends_session_on_server(self):
-        """PROPOSED-1 (negative): an old cookie is useless after logout."""
+        """SR-20 (negative): an old cookie is useless after logout."""
         token = self.browser.get_cookie("sp_session").value
         self.assertEqual(self.browser.post("/api/logout", json={}).status_code, 200)
 
@@ -129,7 +129,7 @@ class SessionTests(AppTestCase):
         self.assertEqual(replay.get("/api/me").status_code, 401)
 
     def test_session_ends_after_30_idle_minutes(self):
-        """PROPOSED-2"""
+        """SR-21"""
         self.clock.advance(minutes=29)
         self.assertEqual(self.browser.get("/api/me").status_code, 200)   # activity resets the timer
         self.clock.advance(minutes=29)
@@ -177,7 +177,7 @@ class AuditAndDeletionTests(AppTestCase):
             self.assertNotIn("@", " ".join(str(value) for value in tuple(row)))
 
     def test_audit_entries_cannot_be_changed_or_deleted_early(self):
-        """PROPOSED-3 (negative): blocked inside the database itself."""
+        """SR-23 (negative): blocked inside the database itself."""
         import sqlite3
         self.register("dana@test.example")
         conn = sqlite3.connect(self.db_path)

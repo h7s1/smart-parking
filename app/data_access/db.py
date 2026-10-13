@@ -12,6 +12,7 @@ from pathlib import Path
 from flask import current_app, g
 
 SCHEMA_FILE = Path(__file__).with_name("schema.sql")
+SCHEMA_VERSION = 2          # must match "PRAGMA user_version" at the end of schema.sql
 
 
 def connect(path):
@@ -38,6 +39,22 @@ def close_db(_exc=None):
 
 def create_schema(conn):
     conn.executescript(SCHEMA_FILE.read_text(encoding="utf-8"))
+
+
+def check_database_file(path):
+    """Refuse to start without a database, or with one made by older code."""
+    if not Path(path).exists():
+        raise RuntimeError("No database found. Run: python scripts/init_db.py")
+    conn = sqlite3.connect(path)
+    try:
+        version = conn.execute("PRAGMA user_version").fetchone()[0]
+    finally:
+        conn.close()
+    if version < SCHEMA_VERSION:
+        raise RuntimeError(
+            "The database was created by an older version of the code. "
+            "Run: python scripts/init_db.py --reset"
+        )
 
 
 @contextmanager
