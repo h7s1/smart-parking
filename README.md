@@ -51,8 +51,8 @@ With the server running, open a second terminal (activate `.venv` there too):
 python scripts/gate_simulator.py entry ABC1234        # ALLOW: driver1 has a reservation now
 python scripts/gate_simulator.py exit ABC1234         # ALLOW: exit time recorded, spot FREE again
 python scripts/gate_simulator.py entry XYZ9876        # DENY: driver2 has no reservation now
-python scripts/gate_simulator.py entry ABC1234 --no-key       # refused (SR-17)
-python scripts/gate_simulator.py entry ABC1234 --wrong-key    # refused (SR-17)
+python scripts/gate_simulator.py entry ABC1234 --no-key       # refused (SR-20)
+python scripts/gate_simulator.py entry ABC1234 --wrong-key    # refused (SR-20)
 ```
 
 Each answer shows how long it took (NFR-02: at most 2 seconds).
@@ -78,7 +78,7 @@ would be sent (FR-08), with most of the address hidden.
 python -m unittest discover -s tests -v
 ```
 
-113 tests. Each test names the requirement it checks, and tests marked
+115 tests. Each test names the requirement it checks, and tests marked
 "(negative)" try an attack and confirm the system refuses it. These can be
 reused as evidence for the Week 11 security testing.
 
@@ -99,15 +99,15 @@ reused as evidence for the Week 11 security testing.
 
 How one request moves through the layers, for example "cancel a reservation":
 
-1. `api/reservation_routes.py`: `@roles_required(DRIVER)` checks the session and the role (SR-03, SR-04).
-2. `api/validation.py`: `path_id()` checks that the ID is a valid UUID (SR-14).
+1. `api/reservation_routes.py`: `@roles_required(DRIVER)` checks the session and the role (SR-03, SR-07).
+2. `api/validation.py`: `path_id()` checks that the ID is a valid UUID (SR-17).
 3. `logic/reservations.py`: `cancel()` applies the 30-minute rule (FR-07).
-4. `data_access/reservations_repo.py`: the query includes `driver_id = ?`, so another driver's reservation is "Not found" (SR-05, SR-15).
+4. `data_access/reservations_repo.py`: the query includes `driver_id = ?`, so another driver's reservation is "Not found" (SR-08, SR-18).
 
 And a gate event (flow 2):
 
-1. `api/gate_routes.py`: `@gate_key_required` compares the `X-Gate-Key` header with the key from `.env` (SR-17).
-2. `api/validation.py`: the plate and direction are checked (SR-14).
+1. `api/gate_routes.py`: `@gate_key_required` compares the `X-Gate-Key` header with the key from `.env` (SR-20).
+2. `api/validation.py`: the plate and direction are checked (SR-17).
 3. `logic/gate.py`: the plate is used to find the vehicle, then dropped (PR-01). With a reservation covering now and a FREE spot, the answer is ALLOW, a parking session is added (FR-10) and the spot becomes OCCUPIED.
 
 ## Requirements implemented
@@ -123,38 +123,49 @@ And a gate event (flow 2):
 | FR-09, FR-10, FR-11 gate decision, entry, exit | `logic/gate.py`, `api/gate_routes.py` | test_gate |
 | FR-12, FR-13, FR-14 admin spots and audit log | `logic/admin.py` | test_parking, test_authorization, test_gate |
 | FR-15, FR-16, FR-17 disputes | `logic/disputes.py`, `api/dispute_routes.py`, `api/support_routes.py` | test_disputes |
+| NFR-01 login within 2 seconds | `logic/accounts.py` (bcrypt work factor 12) | test_authentication |
 | NFR-02 gate answer within 2 seconds | `logic/gate.py` (one short transaction) | test_gate |
 | NFR-03, NFR-04 confirmation and error messages | `api/*_routes.py`, `api/validation.py` | test_parking |
+| NFR-05 99% available from 7:00 to 23:00 | A target for a real deployment; it cannot be shown with a local prototype | (report) |
+| NFR-06 recover within 2 minutes | SQLite transactions (nothing half-saved); the server restarts in seconds | test_authentication |
 | NFR-07 log logins and account changes | `security/audit.py` | test_authentication |
 | NFR-08 log every support agent access | `logic/disputes.py` `driver_data_for_support` | test_disputes |
 | NFR-09 no double booking | `logic/reservations.py` (write lock + overlap check) | test_parking |
 | SR-01, SR-02 login and 15-minute block | `logic/accounts.py` `log_in` | test_authentication |
-| SR-03, SR-04 login and role on the server | `api/guards.py` | test_authorization, test_disputes |
-| SR-05 own records only | `data_access/*_repo.py` (`owner_id = ?`, `driver_id = ?`) | test_authorization, test_disputes, test_gate |
-| SR-06 support access only with an open dispute | `logic/disputes.py`, `data_access/disputes_repo.py` | test_disputes |
-| SR-07 random UUIDs | every `uuid.uuid4()` | test_authorization |
-| SR-08, SR-09 audit account changes; admin reads log | `security/audit.py`, `api/admin_routes.py` | test_authentication, test_authorization |
-| SR-10 bcrypt, work factor >= 10 | `security/passwords.py`, `config.py` | test_authentication, test_input_and_errors |
-| SR-11 admin does not see who reserved | `data_access/reservations_repo.py` `list_times_from` | test_authorization |
-| SR-12 nobody edits parking sessions | only the gate writes them; no route changes them | test_gate, test_disputes |
-| SR-13 HTTPS | `run.py` (HTTPS only), Secure cookie, HSTS header | test_authentication |
-| SR-14 server-side input validation | `api/validation.py` | test_input_and_errors, test_parking, test_gate |
-| SR-15 parameterized queries | `data_access/` | test_input_and_errors (also scans the code) |
-| SR-16 safe error messages | `errors.py`, error handlers in `app/__init__.py` | test_input_and_errors |
-| SR-17 gate key on every gate event | `api/guards.py` `gate_key_required`, `config.py` | test_gate, test_input_and_errors |
-| SR-18 key outside code and database | `config.py`, `.env`, `.gitignore` | test_input_and_errors |
-| SR-19 60 requests per minute | `security/rate_limit.py` | test_input_and_errors |
-| SR-20 logout ends the session | `api/auth_routes.py` `logout`, `security/sessions.py` | test_authentication |
-| SR-21 session ends after 30 idle minutes | `security/sessions.py` `current_user` | test_authentication, test_cleanup |
-| SR-22 passwords of 15 to 64 characters | `api/validation.py` `new_password`, `config.py` | test_authentication |
-| SR-23 audit entries cannot be changed or deleted early | triggers in `schema.sql` | test_authentication, test_cleanup |
-| SR-24 changes only as JSON | `app/__init__.py` `protect_api` | test_input_and_errors |
+| SR-03, SR-07 login and role on the server | `api/guards.py` | test_authorization, test_disputes |
+| SR-04 logout ends the session | `api/auth_routes.py` `logout`, `security/sessions.py` | test_authentication |
+| SR-05 session ends after 30 idle minutes | `security/sessions.py` `current_user` | test_authentication, test_cleanup |
+| SR-06 passwords of 8 to 64 characters | `api/validation.py` `new_password`, `config.py` | test_authentication |
+| SR-08 own records only | `data_access/*_repo.py` (`owner_id = ?`, `driver_id = ?`) | test_authorization, test_disputes, test_gate |
+| SR-09 support access only with an open dispute | `logic/disputes.py`, `data_access/disputes_repo.py` | test_disputes |
+| SR-10 random UUIDs | every `uuid.uuid4()` | test_authorization |
+| SR-11, SR-12 audit account changes; admin reads log | `security/audit.py`, `api/admin_routes.py` | test_authentication, test_authorization |
+| SR-13 bcrypt, work factor >= 10 | `security/passwords.py`, `config.py` | test_authentication, test_input_and_errors |
+| SR-14 admin does not see who reserved | `data_access/reservations_repo.py` `list_times_from` | test_authorization |
+| SR-15 nobody edits parking sessions | only the gate writes them; no route changes them | test_gate, test_disputes |
+| SR-16 HTTPS | `run.py` (HTTPS only), Secure cookie, HSTS header | test_authentication |
+| SR-17 server-side input validation | `api/validation.py` | test_input_and_errors, test_parking, test_gate |
+| SR-18 parameterized queries | `data_access/` | test_input_and_errors (also scans the code) |
+| SR-19 safe error messages | `errors.py`, error handlers in `app/__init__.py` | test_input_and_errors |
+| SR-20 gate key on every gate event | `api/guards.py` `gate_key_required`, `config.py` | test_gate, test_input_and_errors |
+| SR-21 key outside code and database | `config.py`, `.env`, `.gitignore` | test_input_and_errors |
+| SR-22 60 requests per minute | `security/rate_limit.py` | test_input_and_errors |
 | PR-01 plate dropped after the gate decision | `logic/gate.py` `decide` | test_gate |
 | PR-02 no names, phones or GPS | `schema.sql` has no such columns; dispute reasons from a fixed list | test_disputes (by design) |
 | PR-03, PR-04 email and plate encrypted | `security/crypto.py` (AES-256-GCM) | test_authentication, test_parking |
 | PR-05, PR-06 IDs only in sessions and audit log | `schema.sql`, `security/audit.py` | test_gate, test_disputes |
 | PR-07 to PR-10 retention periods | `cleanup.py`, `delete_expired()` in `data_access/` | test_cleanup |
 | PR-11 deleting the account deletes the data | `ON DELETE CASCADE` in `schema.sql` | test_authentication, test_disputes |
+
+Requirement and threat IDs follow the numbering of the comprehensive project
+report. SR-04 to SR-06 were added in Week 8 (logout, idle timeout, password
+length), and so was TH-05 (session reuse); the IDs after them moved down.
+
+**Extra hardening (not numbered requirements).** Two protections stay in the
+code although they are not in the requirement list: requests that change data
+must be JSON (with the SameSite cookie, this blocks cross-site request forgery;
+`app/__init__.py` `protect_api`), and database triggers stop any change to an
+audit entry or its deletion before 180 days (`schema.sql`). Both have tests.
 | Data map: 12 months without login | `cleanup.py`, `users_repo.list_inactive` | test_cleanup |
 
 ## Decisions made while building Week 9 (for the team to review)
@@ -179,7 +190,7 @@ by the team and, where it changes the design, written into the report.
    session reaches the end of its retention, the closed disputes about it are
    deleted with it (cascade), which can be sooner than 90 days after closing.
 7. **Support access covers all of the driver's reservations, parking
-   sessions and plates** while any of the driver's disputes is open, as SR-06
+   sessions and plates** while any of the driver's disputes is open, as SR-09
    is worded. A refused attempt (no open dispute, or an unknown ID) is
    recorded as `SUPPORT_ACCESS_DENIED`.
 8. **New audit actions:** `DISPUTE_OPENED`, `DISPUTE_CLOSED`, `SUPPORT_ACCESS`,
@@ -197,7 +208,7 @@ by the team and, where it changes the design, written into the report.
   only suits a small data set; a larger system would search by a keyed hash.
   The gate answer was measured with 50 vehicles in the tests.
 * **Registration shows whether an email is taken.** The message does not say
-  so, but the failed status does. The request limit (SR-19) slows mass
+  so, but the failed status does. The request limit (SR-22) slows mass
   checking; a full fix needs email verification.
 * **One shared gate key.** Every gate uses the same key, and changing it means
   editing `.env` and restarting. A real system would give each gate its own
@@ -205,5 +216,8 @@ by the team and, where it changes the design, written into the report.
 * **The cleanup job runs inside the server process.** If the server is down at
   the daily time, the job runs at the next start.
 * **Request counts are kept in memory.** They reset when the server restarts.
+* **Password length.** SR-06 asks for at least 8 characters (team decision).
+  NIST SP 800-63B-4 asks for 15 when the password is the only login factor, as
+  it is here, so a real deployment should require 15 or add a second factor.
 * **Flask's built-in server and a self-signed certificate** are used for the
   prototype; neither is meant for production.

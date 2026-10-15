@@ -14,7 +14,7 @@ def add_vehicle(owner_id, plate):
     with transaction(immediate=True):
         for row in vehicles_repo.list_plate_ciphertexts():
             if crypto.decrypt(row["plate_enc"], crypto.PLATE) == plate:
-                # Does not say who owns the plate (SR-16).
+                # Does not say who owns the plate (SR-19).
                 raise Conflict("This license plate cannot be added.")
         vehicles_repo.insert(
             vehicle_id, owner_id, crypto.encrypt(plate, crypto.PLATE), clock.to_db(clock.now())
@@ -31,7 +31,7 @@ def list_vehicles(owner_id):
 
 def remove_vehicle(owner_id, vehicle_id):
     """FR-05. If the vehicle is not this driver's, the answer is "Not found",
-    exactly as if it did not exist (SR-05). A car that is parked right now
+    exactly as if it did not exist (SR-08). A car that is parked right now
     cannot be removed, so its spot is not left OCCUPIED."""
     with transaction(immediate=True):
         if vehicles_repo.get_for_owner(vehicle_id, owner_id) is None:

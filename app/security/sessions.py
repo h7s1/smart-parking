@@ -1,4 +1,4 @@
-"""Login sessions kept on the server (FR-02, SR-03, SR-20, SR-21).
+"""Login sessions kept on the server (FR-02, SR-03, SR-04, SR-05).
 
 On login the server creates a random 256-bit token. The browser keeps the
 token in a cookie; the database keeps only its SHA-256 hash.
@@ -6,7 +6,7 @@ token in a cookie; the database keeps only its SHA-256 hash.
 Cookie settings:
   * HttpOnly: page scripts cannot read the cookie, so an injected script
     cannot steal it.
-  * Secure: the cookie is only sent over HTTPS (SR-13).
+  * Secure: the cookie is only sent over HTTPS (SR-16).
   * SameSite=Strict: the browser does not send the cookie with requests that
     start on another website (protection against cross-site request forgery).
 
@@ -63,7 +63,7 @@ def current_user():
     now = clock.now()
     idle_limit = timedelta(minutes=current_app.config["SESSION_IDLE_MINUTES"])
     if now - clock.from_db(row["last_seen_at"]) > idle_limit:
-        sessions_repo.delete(token_hash)          # SR-21: idle timeout
+        sessions_repo.delete(token_hash)          # SR-05: idle timeout
         return None
 
     sessions_repo.touch(token_hash, clock.to_db(now))
@@ -71,7 +71,7 @@ def current_user():
 
 
 def end():
-    """Delete the request's session on the server (SR-20: logout)."""
+    """Delete the request's session on the server (SR-04: logout)."""
     token = _token_from_request()
     if token is not None:
         sessions_repo.delete(_hash(token))

@@ -1,9 +1,9 @@
 """Setup for a developer laptop. Safe to run again: it never replaces a key.
 
-1. Creates .env with a new random encryption key (SR-18) and gate key (SR-17).
+1. Creates .env with a new random encryption key (SR-21) and gate key (SR-20).
    The .env file is listed in .gitignore, so the keys never go into the
    repository. If .env already exists, only missing keys are added.
-2. Creates a self-signed TLS certificate for https://localhost (SR-13).
+2. Creates a self-signed TLS certificate for https://localhost (SR-16).
 
 Run from the project folder:  python scripts/setup_dev.py
 """

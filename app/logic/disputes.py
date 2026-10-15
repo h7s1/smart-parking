@@ -1,9 +1,9 @@
-"""Disputes and support agent access (FR-15, FR-16, FR-17, SR-06, NFR-08).
+"""Disputes and support agent access (FR-15, FR-16, FR-17, SR-09, NFR-08).
 
 A driver opens a dispute about one of their own reservations or parking
 sessions, choosing a reason from a fixed list. While the driver has an open
 dispute, a support agent can see the driver's reservations, parking sessions
-and plates (SR-06). Every attempt by a support agent to see a driver's data is
+and plates (SR-09). Every attempt by a support agent to see a driver's data is
 recorded in the audit log, including refused attempts (NFR-08).
 """
 import uuid
@@ -50,7 +50,7 @@ def open_dispute(driver_id, reason, reservation_id=None, parking_session_id=None
         else:
             own = parking_sessions_repo.get_for_owner(parking_session_id, driver_id)
         if own is None:
-            raise NotFound()                       # not this driver's record (SR-05)
+            raise NotFound()                       # not this driver's record (SR-08)
         if disputes_repo.has_open_for_record(reservation_id, parking_session_id):
             raise Conflict("There is already an open dispute about this.")
         disputes_repo.insert(dispute_id, driver_id, reservation_id, parking_session_id,
@@ -81,7 +81,7 @@ def close_dispute(agent_id, dispute_id):
 
 
 def driver_data_for_support(agent_id, driver_id):
-    """SR-06, NFR-08: a driver's reservations, parking sessions and plates.
+    """SR-09, NFR-08: a driver's reservations, parking sessions and plates.
 
     Allowed only while the driver has an open dispute. The attempt is recorded
     before the answer is sent, whether it is allowed or refused. A driver ID

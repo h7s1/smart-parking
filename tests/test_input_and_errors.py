@@ -1,5 +1,5 @@
 """Input validation, SQL injection, error messages, request limits and settings
-(SR-10, SR-14 to SR-19)."""
+(SR-13, SR-17 to SR-22)."""
 import ast
 import base64
 import importlib.util
@@ -21,7 +21,7 @@ LEAK_SIGNS = ("Traceback", "sqlite", "SELECT", 'File "', "Werkzeug", "line ")
 
 
 class SqlInjectionTests(AppTestCase):
-    """SR-14, SR-15, TH-02 (negative)."""
+    """SR-17, SR-18, TH-02 (negative)."""
 
     def test_sql_injection_in_login_fails_safely(self):
         for attack in ("' OR '1'='1' --@x.test", "admin@test.example' --", "x@x.test'; DROP TABLE users; --"):
@@ -42,7 +42,7 @@ class SqlInjectionTests(AppTestCase):
         self.login(email)
 
     def test_data_access_code_never_builds_sql_from_strings(self):
-        """SR-15: every execute() call gets fixed SQL text with ? placeholders,
+        """SR-18: every execute() call gets fixed SQL text with ? placeholders,
         never an f-string or text joined with variables."""
         for source in DATA_ACCESS_DIR.glob("*.py"):
             tree = ast.parse(source.read_text(encoding="utf-8"))
@@ -57,7 +57,7 @@ class SqlInjectionTests(AppTestCase):
 
 
 class ErrorMessageTests(AppTestCase):
-    """SR-16 (negative): errors show no system details or personal data."""
+    """SR-19 (negative): errors show no system details or personal data."""
 
     def assert_no_leak(self, response):
         body = response.get_data(as_text=True)
@@ -107,7 +107,7 @@ class ErrorMessageTests(AppTestCase):
 class RequestProtectionTests(AppTestCase):
 
     def test_changes_must_be_sent_as_json(self):
-        """SR-24 (negative): a form posted from another website is refused."""
+        """Extra hardening (negative): a form posted from another website is refused."""
         response = self.client().post("/api/login", data={"email": "a@test.example", "password": PASSWORD})
         self.assertEqual(response.status_code, 415)
 
@@ -124,7 +124,7 @@ class RateLimitTests(AppTestCase):
     rate_limit = 60
 
     def test_more_than_60_requests_in_a_minute_rejected(self):
-        """SR-19, TH-04 (negative)"""
+        """SR-22, TH-04 (negative)"""
         browser = self.client()
         for _ in range(60):
             self.assertEqual(browser.get("/api/me").status_code, 401)   # allowed (not logged in)
@@ -136,26 +136,26 @@ class RateLimitTests(AppTestCase):
 class SettingsTests(unittest.TestCase):
 
     def test_app_refuses_to_start_without_encryption_key(self):
-        """SR-18: no key in the code means the app must be given one."""
+        """SR-21: no key in the code means the app must be given one."""
         with self.assertRaises(RuntimeError):
             create_app({"DATABASE": ":memory:", "ENCRYPTION_KEY": None})
 
     def test_app_refuses_weak_bcrypt_setting(self):
-        """SR-10"""
+        """SR-13"""
         key = base64.b64encode(os.urandom(32)).decode()
         with self.assertRaises(RuntimeError):
             create_app({"DATABASE": ":memory:", "ENCRYPTION_KEY": key, "BCRYPT_ROUNDS": 8,
                         "GATE_KEY": GATE_KEY})
 
     def test_app_refuses_to_start_without_a_strong_gate_key(self):
-        """SR-17: the gate key comes from .env, never from the code."""
+        """SR-20: the gate key comes from .env, never from the code."""
         key = base64.b64encode(os.urandom(32)).decode()
         for gate_key in (None, "", "short-key"):
             with self.assertRaises(RuntimeError):
                 create_app({"DATABASE": ":memory:", "ENCRYPTION_KEY": key, "GATE_KEY": gate_key})
 
     def test_setup_adds_missing_gate_key_and_keeps_the_encryption_key(self):
-        """SR-17, SR-18: running setup again never replaces a key."""
+        """SR-20, SR-21: running setup again never replaces a key."""
         spec = importlib.util.spec_from_file_location("setup_dev", SCRIPTS_DIR / "setup_dev.py")
         setup_dev = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(setup_dev)

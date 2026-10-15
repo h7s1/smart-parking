@@ -31,24 +31,24 @@ def _find_user_id(email):
 
 def _create_user(email, password, role):
     password_hash = passwords.hash_password(password)   # slow, so done before locking
-    user_id = str(uuid.uuid4())                         # random UUID (SR-07)
+    user_id = str(uuid.uuid4())                         # random UUID (SR-10)
     # One transaction with the write lock taken first, so two requests cannot
     # register the same email at the same moment.
     with transaction(immediate=True):
         if _find_user_id(email) is not None:
-            # The message does not say that the email is registered (SR-16).
+            # The message does not say that the email is registered (SR-19).
             # Known limitation: the failed status still shows it, so the request
-            # limit (SR-19) is what slows down mass checking. A full fix needs
+            # limit (SR-22) is what slows down mass checking. A full fix needs
             # email verification, which is out of scope.
             raise ValidationError(REGISTRATION_FAILED)
         users_repo.insert(
             user_id,
             crypto.encrypt(email, crypto.EMAIL),          # PR-03
-            password_hash,                                # SR-10
+            password_hash,                                # SR-13
             role,
             clock.to_db(clock.now()),
         )
-        audit.record(audit.ACCOUNT_CREATED, user_id=user_id, target_id=user_id)  # SR-08
+        audit.record(audit.ACCOUNT_CREATED, user_id=user_id, target_id=user_id)  # SR-11
     return user_id
 
 
@@ -71,7 +71,7 @@ def create_staff_account(email, password, role):
 def log_in(email, password):
     """SR-01, SR-02. Returns (user_id, role) or raises LoginFailed.
 
-    Every failure raises the same LoginFailed message (SR-16).
+    Every failure raises the same LoginFailed message (SR-19).
     """
     config = current_app.config
     now = clock.now()
@@ -133,4 +133,4 @@ def delete_driver_account(user_id, password):
             # Deleting now would leave the spot OCCUPIED with no session behind it.
             raise Conflict("The account cannot be deleted while one of your vehicles is parked.")
         users_repo.delete(user_id)      # cascades to vehicles, reservations, sessions, disputes
-        audit.record(audit.ACCOUNT_DELETED, user_id=user_id, target_id=user_id)  # SR-08
+        audit.record(audit.ACCOUNT_DELETED, user_id=user_id, target_id=user_id)  # SR-11

@@ -1,7 +1,10 @@
 """Authentication, passwords, sessions and accounts."""
+import time
 import unittest
 
-from helpers import ADMIN_EMAIL, PASSWORD, AppTestCase
+from helpers import ADMIN_EMAIL, PASSWORD, AppTestCase, HttpsTestClient
+
+from app import create_app
 
 
 class RegistrationTests(AppTestCase):
@@ -13,7 +16,7 @@ class RegistrationTests(AppTestCase):
         self.assertEqual(me["role"], "DRIVER")
 
     def test_register_cannot_choose_admin_role(self):
-        """FR-01, TH-10 (negative): a role sent in the request is ignored."""
+        """FR-01, TH-11 (negative): a role sent in the request is ignored."""
         response = self.client().post("/api/register", json={
             "email": "mallory@test.example", "password": PASSWORD, "role": "ADMIN"})
         self.assertEqual(response.status_code, 201)
@@ -21,16 +24,18 @@ class RegistrationTests(AppTestCase):
         self.assertEqual(me["role"], "DRIVER")
 
     def test_register_rejects_invalid_input(self):
-        """NFR-04, SR-14 (negative)"""
+        """NFR-04, SR-17 (negative)"""
         bad_email = self.register("not-an-email")
         self.assertEqual(bad_email.status_code, 400)
         self.assertEqual(bad_email.get_json()["error"], "Enter a valid email address.")
-        short_password = self.register("dana@test.example", "short")
+        short_password = self.register("dana@test.example", "seven77")      # 7 characters
         self.assertEqual(short_password.status_code, 400)
-        self.assertIn("15 to 64 characters", short_password.get_json()["error"])
+        self.assertIn("8 to 64 characters", short_password.get_json()["error"])
+        # SR-06: 8 characters is the minimum, so this one is accepted.
+        self.assertEqual(self.register("dana@test.example", "eight888").status_code, 201)
 
     def test_duplicate_email_message_does_not_confirm_account(self):
-        """SR-16 (negative): the message does not say the email is registered."""
+        """SR-19 (negative): the message does not say the email is registered."""
         self.register("dana@test.example")
         response = self.register("dana@test.example")
         self.assertEqual(response.status_code, 400)
@@ -38,7 +43,7 @@ class RegistrationTests(AppTestCase):
         self.assertNotIn("already registered", response.get_data(as_text=True))
 
     def test_password_stored_only_as_bcrypt_hash(self):
-        """SR-10: salted bcrypt hash with a work factor of at least 10."""
+        """SR-13: salted bcrypt hash with a work factor of at least 10."""
         self.register("dana@test.example")
         for row in self.query("SELECT password_hash FROM users"):
             stored = row["password_hash"]
@@ -61,7 +66,7 @@ class LoginTests(AppTestCase):
         self.register("dana@test.example")
 
     def test_login_sets_protected_session_cookie(self):
-        """FR-02, SR-13: HttpOnly, Secure and SameSite=Strict."""
+        """FR-02, SR-16: HttpOnly, Secure and SameSite=Strict."""
         response = self.client().post("/api/login", json={
             "email": "dana@test.example", "password": PASSWORD})
         self.assertEqual(response.status_code, 200)
@@ -73,7 +78,7 @@ class LoginTests(AppTestCase):
         self.login("Dana@Test.Example")
 
     def test_failed_login_message_is_the_same_for_unknown_email(self):
-        """SR-16 (negative): no hint about which emails are registered."""
+        """SR-19 (negative): no hint about which emails are registered."""
         wrong_password = self.client().post("/api/login", json={
             "email": "dana@test.example", "password": "wrong password here!!"})
         unknown_email = self.client().post("/api/login", json={
@@ -120,7 +125,7 @@ class SessionTests(AppTestCase):
             self.assertEqual(stranger.get(path).status_code, 401, path)
 
     def test_logout_ends_session_on_server(self):
-        """SR-20 (negative): an old cookie is useless after logout."""
+        """SR-04, TH-05 (negative): an old cookie is useless after logout."""
         token = self.browser.get_cookie("sp_session").value
         self.assertEqual(self.browser.post("/api/logout", json={}).status_code, 200)
 
@@ -129,7 +134,7 @@ class SessionTests(AppTestCase):
         self.assertEqual(replay.get("/api/me").status_code, 401)
 
     def test_session_ends_after_30_idle_minutes(self):
-        """SR-21"""
+        """SR-05"""
         self.clock.advance(minutes=29)
         self.assertEqual(self.browser.get("/api/me").status_code, 200)   # activity resets the timer
         self.clock.advance(minutes=29)
@@ -153,7 +158,7 @@ class SessionTests(AppTestCase):
 class AuditAndDeletionTests(AppTestCase):
 
     def test_logins_and_account_creation_recorded(self):
-        """NFR-07, SR-08"""
+        """NFR-07, SR-11"""
         self.register("dana@test.example")
         self.login("dana@test.example")
         self.client().post("/api/login", json={"email": "dana@test.example", "password": "wrong password here!!"})
@@ -177,7 +182,7 @@ class AuditAndDeletionTests(AppTestCase):
             self.assertNotIn("@", " ".join(str(value) for value in tuple(row)))
 
     def test_audit_entries_cannot_be_changed_or_deleted_early(self):
-        """SR-23 (negative): blocked inside the database itself."""
+        """Audit log protection, extra hardening (negative): blocked inside the database."""
         import sqlite3
         self.register("dana@test.example")
         conn = sqlite3.connect(self.db_path)
@@ -213,9 +218,37 @@ class AuditAndDeletionTests(AppTestCase):
         self.assertEqual(driver.get("/api/me").status_code, 200)
 
     def test_staff_cannot_use_driver_account_deletion(self):
-        """SR-04 (negative)"""
+        """SR-07 (negative)"""
         admin = self.login(ADMIN_EMAIL)
         self.assertEqual(admin.post("/api/account/delete", json={"password": PASSWORD}).status_code, 403)
+
+
+class PerformanceAndRecoveryTests(AppTestCase):
+
+    def test_login_takes_less_than_2_seconds(self):
+        """NFR-01: with the real bcrypt work factor (12) and 20 other accounts to search."""
+        for n in range(20):
+            self.register(f"user{n}@test.example")
+        self.app.config["BCRYPT_ROUNDS"] = 12
+        self.register("timed@test.example")
+        started = time.perf_counter()
+        self.login("timed@test.example")
+        self.assertLess(time.perf_counter() - started, 2.0)
+
+    def test_data_is_kept_after_a_restart(self):
+        """NFR-06: every change is saved in one transaction, so after a crash or a
+        restart the server starts again with the same data and nothing half-saved."""
+        driver = self.new_driver("dana@test.example")
+        self.add_vehicle(driver, "ABC1234")
+        settings = {name: self.app.config[name] for name in (
+            "DATABASE", "ENCRYPTION_KEY", "GATE_KEY", "BCRYPT_ROUNDS", "CLOCK", "EMAIL_SENDER")}
+        restarted = create_app(settings)                  # a new server process
+        restarted.test_client_class = HttpsTestClient
+        browser = restarted.test_client()
+        response = browser.post("/api/login", json={"email": "dana@test.example", "password": PASSWORD})
+        self.assertEqual(response.status_code, 200)
+        plates = [v["plate"] for v in browser.get("/api/vehicles").get_json()["vehicles"]]
+        self.assertEqual(plates, ["ABC1234"])
 
 
 if __name__ == "__main__":

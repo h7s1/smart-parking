@@ -1,6 +1,6 @@
 """Start the Smart Parking server on https://localhost:5000.
 
-The server only runs over HTTPS (SR-13). It uses the certificate created by
+The server only runs over HTTPS (SR-16). It uses the certificate created by
 scripts/setup_dev.py. Flask's built-in server is fine for this prototype but
 is not meant for production.
 
@@ -18,14 +18,14 @@ BASE_DIR = Path(__file__).resolve().parent
 CERT_FILE = BASE_DIR / "certs" / "dev-cert.pem"
 KEY_FILE = BASE_DIR / "certs" / "dev-key.pem"
 
-# Hide the server software and Python version from response headers (SR-16).
+# Hide the server software and Python version from response headers (SR-19).
 WSGIRequestHandler.server_version = "SmartParking"
 WSGIRequestHandler.sys_version = ""
 
 
 def main():
     try:
-        app = create_app()            # refuses to start without valid keys (SR-17, SR-18)
+        app = create_app()            # refuses to start without valid keys (SR-20, SR-21)
     except RuntimeError as error:
         sys.exit(str(error))
     if not (CERT_FILE.exists() and KEY_FILE.exists()):

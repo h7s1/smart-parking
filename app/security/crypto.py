@@ -2,7 +2,7 @@
 
 Algorithm: AES-256-GCM, from the "cryptography" library.
   * The 32-byte key comes from SP_ENCRYPTION_KEY and is read once, when the
-    application starts. It is never stored in the code or the database (SR-18).
+    application starts. It is never stored in the code or the database (SR-21).
   * Each value gets a new random 12-byte nonce, so the same email encrypted
     twice gives two different results.
   * GCM also checks integrity: a changed ciphertext fails to decrypt.

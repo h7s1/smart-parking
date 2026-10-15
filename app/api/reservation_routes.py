@@ -45,5 +45,5 @@ def cancel_reservation(reservation_id):
 @bp.get("/parking-history")
 @roles_required(DRIVER)
 def parking_history():
-    """The driver's own parking sessions. Read only: no route changes them (SR-12)."""
+    """The driver's own parking sessions. Read only: no route changes them (SR-15)."""
     return jsonify(parking_sessions=gate.history_for_driver(g.user["id"]))

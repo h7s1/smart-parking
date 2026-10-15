@@ -10,7 +10,7 @@ from ..logic.accounts import DRIVER
 @bp.get("/vehicles")
 @roles_required(DRIVER)
 def list_vehicles():
-    # The owner is always the logged-in driver, taken from the session (SR-05).
+    # The owner is always the logged-in driver, taken from the session (SR-08).
     return jsonify(vehicles=vehicles.list_vehicles(g.user["id"]))
 
 

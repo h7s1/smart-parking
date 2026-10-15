@@ -9,7 +9,7 @@ from ..logic import gate
 @bp.post("/gate/events")
 @gate_key_required
 def gate_event():
-    """FR-09 to FR-11, SR-17, NFR-02.
+    """FR-09 to FR-11, SR-20, NFR-02.
 
     Body: {"direction": "ENTRY" or "EXIT", "plate": "ABC1234"}.
     The answer is only ALLOW or DENY. The plate is never sent back, stored or
@@ -17,5 +17,5 @@ def gate_event():
     """
     data = validation.json_body()
     direction = validation.choice(data, "direction", "Direction", gate.DIRECTIONS)
-    plate = validation.plate(data)                         # SR-14
+    plate = validation.plate(data)                         # SR-17
     return jsonify(decision=gate.decide(plate, direction))

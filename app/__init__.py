@@ -15,7 +15,7 @@ from .errors import AppError
 from .security import crypto
 from .security.rate_limit import RateLimiter
 
-# Messages for standard HTTP errors. None of them contain system details (SR-16).
+# Messages for standard HTTP errors. None of them contain system details (SR-19).
 _HTTP_MESSAGES = {
     400: "The request is not valid.",
     401: "Please log in.",
@@ -37,7 +37,7 @@ def create_app(test_config=None):
     app = Flask(__name__, static_folder="web", static_url_path="")
     app.config.from_object(Config)
     app.config.update(test_config if test_config is not None else settings_from_environment())
-    check_settings(app.config)                  # refuses to start without a valid key (SR-18)
+    check_settings(app.config)                  # refuses to start without a valid key (SR-21)
 
     crypto.init_app(app)
     limiter = RateLimiter(app.config["RATE_LIMIT_PER_MINUTE"])
@@ -52,12 +52,13 @@ def create_app(test_config=None):
     def protect_api():
         if not request.path.startswith("/api/"):
             return None
-        # SR-19: request limit per client.
+        # SR-22: request limit per client.
         if not limiter.allow(request.remote_addr or "unknown", clock.now()):
             return _error(429, _HTTP_MESSAGES[429])
-        # SR-24: requests that change data must be JSON. A form on another
-        # website cannot send JSON to this server, which, together with the
-        # SameSite cookie, blocks cross-site request forgery.
+        # Extra hardening (not a numbered requirement): requests that change
+        # data must be JSON. A form on another website cannot send JSON to this
+        # server, which, together with the SameSite cookie, blocks cross-site
+        # request forgery.
         if request.method in ("POST", "PUT", "PATCH") and not request.is_json:
             return _error(415, _HTTP_MESSAGES[415])
         return None
@@ -74,10 +75,10 @@ def create_app(test_config=None):
         if request.path.startswith("/api/"):
             response.headers["Cache-Control"] = "no-store"   # personal data is not cached
         if request.is_secure:
-            response.headers["Strict-Transport-Security"] = "max-age=31536000"  # SR-13
+            response.headers["Strict-Transport-Security"] = "max-age=31536000"  # SR-16
         return response
 
-    # SR-16: errors never show stack traces, SQL or personal data.
+    # SR-19: errors never show stack traces, SQL or personal data.
     @app.errorhandler(AppError)
     def handle_app_error(error):
         return _error(error.status, error.message)

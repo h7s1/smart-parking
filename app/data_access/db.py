@@ -2,7 +2,7 @@
 
 The data access layer is the only code that talks to the database (Figure 1).
 Every query in this package uses ? placeholders, so input is sent to SQLite as
-data and can never change the SQL itself (SR-15). Never build SQL with
+data and can never change the SQL itself (SR-18). Never build SQL with
 f-strings, + or % formatting.
 """
 import sqlite3

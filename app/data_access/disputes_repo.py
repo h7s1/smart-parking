@@ -1,6 +1,6 @@
-"""Disputes table. Parameterized queries only (SR-15).
+"""Disputes table. Parameterized queries only (SR-18).
 
-Queries for one driver include "driver_id = ?" (SR-05).
+Queries for one driver include "driver_id = ?" (SR-08).
 """
 from .db import get_db
 
@@ -41,7 +41,7 @@ def list_open():
 
 
 def driver_has_open(driver_id):
-    """SR-06: the condition for a support agent to see a driver's data."""
+    """SR-09: the condition for a support agent to see a driver's data."""
     row = get_db().execute(
         "SELECT COUNT(*) AS n FROM disputes WHERE driver_id = ? AND status = 'OPEN'",
         (driver_id,),

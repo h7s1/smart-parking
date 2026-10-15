@@ -1,4 +1,4 @@
-"""Gate simulator and gate decision (FR-09, FR-10, FR-11, SR-17, PR-01, PR-05, NFR-02).
+"""Gate simulator and gate decision (FR-09, FR-10, FR-11, SR-20, PR-01, PR-05, NFR-02).
 
 The fake clock starts at 08:00. The driver's reservation on A-01 runs from
 10:00 to 11:00, so start_reservation() moves the clock to 10:05.
@@ -124,10 +124,10 @@ class GateTests(AppTestCase):
             self.assertEqual(response.status_code, 409)
         self.assertEqual(self.spot_status(), "OCCUPIED")
 
-    # ----- SR-17, SR-14 -----
+    # ----- SR-20, SR-17 -----
 
     def test_missing_or_wrong_gate_key_is_refused(self):
-        """SR-17, TH-01 (negative): a fake gate cannot create entries."""
+        """SR-20, TH-01 (negative): a fake gate cannot create entries."""
         self.start_reservation()
         for key in (None, "", "wrong-key", GATE_KEY[:-1], GATE_KEY + "x"):
             with self.assertLogs(self.app.logger, level="WARNING"):   # refusals are logged
@@ -138,7 +138,7 @@ class GateTests(AppTestCase):
         self.assertEqual(self.spot_status(), "FREE")
 
     def test_invalid_gate_input_is_rejected(self):
-        """SR-14 (negative): nothing is stored."""
+        """SR-17 (negative): nothing is stored."""
         self.start_reservation()
         for body in ({"plate": "ABC1234", "direction": "SIDEWAYS"},
                      {"plate": "' OR 1=1 --", "direction": "ENTRY"},
@@ -174,7 +174,7 @@ class GateTests(AppTestCase):
 
 
 class ParkingHistoryTests(AppTestCase):
-    """SR-05, SR-12: a driver sees only their own parking history, read only."""
+    """SR-08, SR-15: a driver sees only their own parking history, read only."""
 
     def test_driver_sees_only_own_history(self):
         dana = self.new_driver("dana@test.example")
@@ -192,7 +192,7 @@ class ParkingHistoryTests(AppTestCase):
         self.assertNotIn("ABC1234", dana.get("/api/parking-history").get_data(as_text=True))
         self.assertEqual(omar.get("/api/parking-history").get_json()["parking_sessions"], [])
 
-        # No route changes a parking session (SR-12).
+        # No route changes a parking session (SR-15).
         for method in ("PUT", "PATCH", "DELETE", "POST"):
             response = dana.open(f"/api/parking-history/{history[0]['id']}", method=method, json={})
             self.assertIn(response.status_code, (404, 405), method)

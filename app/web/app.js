@@ -338,7 +338,7 @@ async function loadDriver() {
                cell(when(r.start)), cell(when(r.end)), actions);
   });
 
-  // Parking history: read only (SR-12).
+  // Parking history: read only (SR-15).
   fillTable("history-rows", sessions, "No visits yet. The gate records each visit.", 4, (v) =>
     row(cell(v.spot, "bay-cell"), cell(plate(plates[v.vehicle_id])), cell(when(v.entry)),
         cell(v.exit ? when(v.exit) : badge("OCCUPIED", "Still parked"))));
@@ -522,7 +522,7 @@ async function loadSupport() {
   });
 }
 
-// SR-06: the server answers only while the driver has an open dispute, and
+// SR-09: the server answers only while the driver has an open dispute, and
 // records every request in the audit log (NFR-08).
 async function showDriverData(driverId) {
   $("driver-data").hidden = true;

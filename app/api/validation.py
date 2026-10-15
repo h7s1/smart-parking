@@ -1,8 +1,8 @@
-"""Server-side input validation (SR-14, NFR-04).
+"""Server-side input validation (SR-17, NFR-04).
 
 Every value from the client is checked for type, length and format before it
 reaches the business logic. Messages say what is wrong without repeating the
-input (SR-16).
+input (SR-19).
 """
 import re
 import uuid
@@ -41,7 +41,7 @@ def email(data):
 
 
 def new_password(data):
-    """Password rules for registration (SR-22)."""
+    """Password rules for registration (SR-06)."""
     value = data.get("password")
     low = current_app.config["MIN_PASSWORD_LENGTH"]
     high = current_app.config["MAX_PASSWORD_LENGTH"]
@@ -53,7 +53,7 @@ def new_password(data):
 
 def login_details(data):
     """Login input. Missing fields get a clear message (NFR-04); anything else
-    that is wrong gets the same message as a wrong password (SR-16)."""
+    that is wrong gets the same message as a wrong password (SR-19)."""
     raw_email, password = data.get("email"), data.get("password")
     if not isinstance(raw_email, str) or not raw_email.strip() \
             or not isinstance(password, str) or not password:

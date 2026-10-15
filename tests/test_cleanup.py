@@ -116,7 +116,7 @@ class CleanupTests(AppTestCase):
         self.assertNotIn(old, self.ids("disputes"))
 
     def test_audit_entries_deleted_after_180_days(self):
-        """PR-10 (G5). The trigger still blocks deleting newer entries (SR-23)."""
+        """PR-10 (G5). The trigger still blocks deleting newer entries."""
         old, recent = str(uuid.uuid4()), str(uuid.uuid4())
         for entry_id, days in ((old, 365), (recent, 10)):
             self.execute("INSERT INTO audit_log (id, user_id, action, target_id, ip_address, created_at)"
@@ -150,7 +150,7 @@ class CleanupTests(AppTestCase):
         self.assertIn(self.driver_id, self.ids("users"))
 
     def test_expired_login_sessions_removed(self):
-        """SR-21: sessions idle for more than 30 minutes are deleted from the table."""
+        """SR-05: sessions idle for more than 30 minutes are deleted from the table."""
         self.assertEqual(len(self.query("SELECT token_hash FROM login_sessions")), 1)
         self.clock.advance(minutes=31)
         self.login(ADMIN_EMAIL)

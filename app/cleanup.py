@@ -5,7 +5,7 @@
   PR-09  disputes 90 days after they are closed
   PR-10  audit log entries 180 days after they are created
   Data map: accounts after 12 months without a login, and login sessions that
-  have expired (SR-21)
+  have expired (SR-05)
 
 Deleting a reservation or parking session also deletes the closed disputes
 about it (ON DELETE CASCADE in schema.sql).

@@ -2,9 +2,9 @@
 single entry point, and the privilege boundary sits here).
 
   login_required     -> SR-03: a valid server-side session is required.
-  roles_required     -> SR-04: the user's role is checked on the server before
+  roles_required     -> SR-07: the user's role is checked on the server before
                         the function runs.
-  gate_key_required  -> SR-17: a gate event must carry the correct gate key.
+  gate_key_required  -> SR-20: a gate event must carry the correct gate key.
 
 Hiding a button in the web page is not access control: anyone can send a
 request directly with a script. That is why every check happens here, on the
@@ -52,7 +52,7 @@ def roles_required(*roles):
 
 
 def gate_key_required(view):
-    """SR-17, TH-01: only the real gate (which knows the gate key) can send
+    """SR-20, TH-01: only the real gate (which knows the gate key) can send
     gate events. The key is compared in constant time, so the response time
     does not show how much of a guessed key was right."""
     @wraps(view)

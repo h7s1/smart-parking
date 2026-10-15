@@ -1,4 +1,4 @@
-"""Roles and ownership: who can do what (SR-03 to SR-07, SR-09, SR-11)."""
+"""Roles and ownership: who can do what (SR-03, SR-07 to SR-10, SR-12, SR-14)."""
 import re
 import unittest
 import uuid
@@ -6,7 +6,7 @@ import uuid
 from helpers import ADMIN_EMAIL, SUPPORT_EMAIL, AppTestCase
 
 PUBLIC_ROUTES = {"/api/register", "/api/login"}
-GATE_ROUTES = {"/api/gate/events"}          # protected by the gate key instead (SR-17)
+GATE_ROUTES = {"/api/gate/events"}          # protected by the gate key instead (SR-20)
 
 
 class RoleTests(AppTestCase):
@@ -32,14 +32,14 @@ class RoleTests(AppTestCase):
                 self.assertEqual(response.status_code, 401, f"{method} {path}")
 
     def test_gate_route_needs_gate_key_not_a_login(self):
-        """SR-17: a logged-in user without the gate key is refused too."""
+        """SR-20: a logged-in user without the gate key is refused too."""
         for browser in (self.client(), self.driver, self.admin, self.support):
             with self.assertLogs(self.app.logger, level="WARNING"):
                 response = browser.post("/api/gate/events", json={"plate": "ABC1234", "direction": "ENTRY"})
             self.assertEqual(response.status_code, 401)
 
     def test_driver_cannot_use_admin_functions(self):
-        """SR-04, TH-10 (negative)"""
+        """SR-07, TH-11 (negative)"""
         self.assertEqual(self.driver.get("/api/admin/spots").status_code, 403)
         self.assertEqual(self.driver.patch(f"/api/admin/spots/{self.spot}", json={"status": "DISABLED"}).status_code, 403)
         self.assertEqual(self.driver.get("/api/admin/audit-log").status_code, 403)
@@ -47,24 +47,24 @@ class RoleTests(AppTestCase):
         self.assertEqual(status, "FREE")
 
     def test_support_agent_cannot_use_admin_or_driver_functions(self):
-        """SR-04, least privilege (negative)"""
+        """SR-07, least privilege (negative)"""
         for path in ("/api/admin/spots", "/api/admin/audit-log", "/api/vehicles", "/api/reservations"):
             self.assertEqual(self.support.get(path).status_code, 403, path)
 
     def test_admin_cannot_use_driver_functions(self):
-        """SR-04, least privilege (negative): the admin cannot see plates or reservations."""
+        """SR-07, least privilege (negative): the admin cannot see plates or reservations."""
         self.assertEqual(self.admin.get("/api/vehicles").status_code, 403)
         self.assertEqual(self.admin.get("/api/reservations").status_code, 403)
         self.assertEqual(self.admin.post("/api/vehicles", json={"plate": "ADM1"}).status_code, 403)
 
     def test_only_admin_reads_audit_log(self):
-        """SR-09, FR-14"""
+        """SR-12, FR-14"""
         response = self.admin.get("/api/admin/audit-log")
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.get_json()["entries"])
 
     def test_admin_spot_view_hides_driver_identity(self):
-        """SR-11, FR-12: reserved times only."""
+        """SR-14, FR-12: reserved times only."""
         vehicle_id = self.add_vehicle(self.driver, "ABC1234")
         self.assertEqual(self.reserve(self.driver, vehicle_id).status_code, 201)
 
@@ -79,7 +79,7 @@ class RoleTests(AppTestCase):
 
 
 class OwnershipTests(AppTestCase):
-    """SR-05, TH-07: a driver changes an ID in a request (IDOR)."""
+    """SR-08, TH-08: a driver changes an ID in a request (IDOR)."""
 
     def setUp(self):
         super().setUp()
@@ -109,7 +109,7 @@ class OwnershipTests(AppTestCase):
         self.assertEqual(len(self.alice.get("/api/reservations").get_json()["reservations"]), 1)
 
     def test_ids_are_random_uuids(self):
-        """SR-07: IDs cannot be guessed from one another."""
+        """SR-10: IDs cannot be guessed from one another."""
         self.clock.advance(hours=2)                       # the reservation has started
         self.assertEqual(self.decision("ALC1001"), "ALLOW")
         alice = self.login("alice@test.example")         # the old session timed out

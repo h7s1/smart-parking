@@ -35,7 +35,7 @@ def create(driver_id, vehicle_id, spot_id, start, end):
     # cannot both pass the check and book the same time (NFR-09).
     with transaction(immediate=True):
         if vehicles_repo.get_for_owner(vehicle_id, driver_id) is None:
-            raise NotFound()                       # not this driver's vehicle (SR-05)
+            raise NotFound()                       # not this driver's vehicle (SR-08)
         spot = spots_repo.get(spot_id)
         if spot is None:
             raise NotFound()
@@ -77,7 +77,7 @@ def cancel(driver_id, reservation_id):
     """FR-07: a driver can cancel their own reservation up to 30 minutes before it starts."""
     row = reservations_repo.get_for_driver(reservation_id, driver_id)
     if row is None:
-        raise NotFound()                           # not this driver's reservation (SR-05)
+        raise NotFound()                           # not this driver's reservation (SR-08)
     minutes = current_app.config["CANCEL_DEADLINE_MINUTES"]
     if clock.from_db(row["start_time"]) - clock.now() < timedelta(minutes=minutes):
         raise Conflict(

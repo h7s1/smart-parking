@@ -4,7 +4,7 @@
 -- never stored (PR-02).
 --
 -- Conventions
---   * Every ID is a random UUID (version 4) stored as text (SR-07).
+--   * Every ID is a random UUID (version 4) stored as text (SR-10).
 --   * Every time is stored in UTC as 'YYYY-MM-DD HH:MM:SS', so text comparison
 --     gives the correct time order.
 
@@ -12,9 +12,9 @@ PRAGMA foreign_keys = ON;
 
 -- Users: drivers, admins and support agents.
 CREATE TABLE IF NOT EXISTS users (
-    id             TEXT PRIMARY KEY,                -- random UUID (SR-07)
+    id             TEXT PRIMARY KEY,                -- random UUID (SR-10)
     email_enc      TEXT NOT NULL,                   -- AES-256-GCM encrypted email (PR-03)
-    password_hash  TEXT NOT NULL,                   -- bcrypt hash, cost >= 10 (SR-10)
+    password_hash  TEXT NOT NULL,                   -- bcrypt hash, cost >= 10 (SR-13)
     role           TEXT NOT NULL
                    CHECK (role IN ('DRIVER', 'ADMIN', 'SUPPORT_AGENT')),
     failed_logins  INTEGER NOT NULL DEFAULT 0,      -- consecutive failures (SR-02)
@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS login_sessions (
 
 -- Vehicles: one driver can own several cars.
 CREATE TABLE IF NOT EXISTS vehicles (
-    id          TEXT PRIMARY KEY,                   -- vehicle ID (SR-07)
+    id          TEXT PRIMARY KEY,                   -- vehicle ID (SR-10)
     owner_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     plate_enc   TEXT NOT NULL,                      -- AES-256-GCM encrypted plate (PR-04)
     created_at  TEXT NOT NULL
@@ -68,7 +68,7 @@ CREATE INDEX IF NOT EXISTS idx_reservations_driver ON reservations(driver_id);
 -- car took, so the spot can be set to OCCUPIED on entry and back to FREE on
 -- exit (FR-12). exit_time is NULL while the car is still inside.
 CREATE TABLE IF NOT EXISTS parking_sessions (
-    id          TEXT PRIMARY KEY,                   -- random UUID (SR-07)
+    id          TEXT PRIMARY KEY,                   -- random UUID (SR-10)
     vehicle_id  TEXT NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
     spot_id     TEXT NOT NULL REFERENCES spots(id),
     entry_time  TEXT NOT NULL,
@@ -78,9 +78,9 @@ CREATE INDEX IF NOT EXISTS idx_parking_sessions_vehicle ON parking_sessions(vehi
 
 -- Disputes (FR-15 to FR-17): the reason comes from a fixed list, so there is
 -- no free text that could hold extra personal data. While a driver has an OPEN
--- dispute, a support agent can see that driver's data (SR-06).
+-- dispute, a support agent can see that driver's data (SR-09).
 CREATE TABLE IF NOT EXISTS disputes (
-    id                  TEXT PRIMARY KEY,           -- random UUID (SR-07)
+    id                  TEXT PRIMARY KEY,           -- random UUID (SR-10)
     driver_id           TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     reservation_id      TEXT REFERENCES reservations(id) ON DELETE CASCADE,
     parking_session_id  TEXT REFERENCES parking_sessions(id) ON DELETE CASCADE,
@@ -110,9 +110,10 @@ CREATE TABLE IF NOT EXISTS audit_log (
 );
 CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(created_at);
 
--- SR-23: audit entries cannot be changed by anyone, and cannot be deleted
--- before they are 180 days old (PR-10). Enforced inside the database, so even
--- a bug in the application code cannot rewrite the log.
+-- Extra hardening (not a numbered requirement): audit entries cannot be
+-- changed by anyone, and cannot be deleted before they are 180 days old
+-- (PR-10). Enforced inside the database, so even a bug in the application
+-- code cannot rewrite the log.
 CREATE TRIGGER IF NOT EXISTS audit_log_no_update
 BEFORE UPDATE ON audit_log
 BEGIN

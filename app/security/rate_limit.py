@@ -1,4 +1,4 @@
-"""Request limit per client (SR-19, TH-04).
+"""Request limit per client (SR-22, TH-04).
 
 A client that has made more than RATE_LIMIT_PER_MINUTE requests within one
 minute is rejected until the minute has passed. Clients are told apart by IP

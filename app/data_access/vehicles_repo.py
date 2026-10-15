@@ -1,7 +1,7 @@
-"""Vehicles table. Parameterized queries only (SR-15).
+"""Vehicles table. Parameterized queries only (SR-18).
 
 Every query that reads or changes one driver's vehicles includes
-"owner_id = ?", so a driver can only ever reach their own vehicles (SR-05).
+"owner_id = ?", so a driver can only ever reach their own vehicles (SR-08).
 """
 from .db import get_db
 

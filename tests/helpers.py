@@ -29,7 +29,7 @@ GATE_KEY = "test-gate-key-" + "x" * 30             # synthetic, test only
 
 
 class HttpsTestClient(FlaskClient):
-    """Sends every test request over HTTPS, like the real server (SR-13)."""
+    """Sends every test request over HTTPS, like the real server (SR-16)."""
 
     def open(self, *args, **kwargs):
         kwargs.setdefault("base_url", "https://localhost")
@@ -63,7 +63,7 @@ class AppTestCase(unittest.TestCase):
             "DATABASE": self.db_path,
             "ENCRYPTION_KEY": base64.b64encode(os.urandom(32)).decode("ascii"),
             "GATE_KEY": GATE_KEY,
-            "BCRYPT_ROUNDS": 10,                   # the minimum SR-10 allows
+            "BCRYPT_ROUNDS": 10,                   # the minimum SR-13 allows
             "CLOCK": self.clock,
             "RATE_LIMIT_PER_MINUTE": self.rate_limit,
             "EMAIL_SENDER": lambda to, subject, body: self.sent_emails.append(

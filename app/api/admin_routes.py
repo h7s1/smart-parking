@@ -10,7 +10,7 @@ from ..logic.accounts import ADMIN
 @bp.get("/admin/spots")
 @roles_required(ADMIN)
 def spot_overview():
-    """FR-12, SR-11."""
+    """FR-12, SR-14."""
     return jsonify(spots=admin.spot_overview())
 
 
@@ -27,5 +27,5 @@ def set_spot_status(spot_id):
 @bp.get("/admin/audit-log")
 @roles_required(ADMIN)
 def audit_log():
-    """FR-14, SR-09: only admins can read the audit log."""
+    """FR-14, SR-12: only admins can read the audit log."""
     return jsonify(entries=admin.read_audit_log())

@@ -1,8 +1,8 @@
-"""Audit log table. Parameterized queries only (SR-15).
+"""Audit log table. Parameterized queries only (SR-18).
 
 There is no update function. The only delete is delete_expired(), used by the
 cleanup job for entries older than 180 days (PR-10). The database triggers in
-schema.sql also block changes and early deletes (SR-23).
+schema.sql also block changes and early deletes (extra hardening).
 """
 from .db import get_db
 

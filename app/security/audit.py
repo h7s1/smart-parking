@@ -1,4 +1,4 @@
-"""Audit logger (NFR-07, NFR-08, SR-08).
+"""Audit logger (NFR-07, NFR-08, SR-11).
 
 Records who did what, when and from which IP address. Users are recorded by ID
 only, never by email or license plate (PR-06). The actions match the purposes
@@ -21,7 +21,7 @@ INACTIVE_ACCOUNT_DELETED = "INACTIVE_ACCOUNT_DELETED"    # by the cleanup job
 DISPUTE_OPENED = "DISPUTE_OPENED"
 DISPUTE_CLOSED = "DISPUTE_CLOSED"
 SUPPORT_ACCESS = "SUPPORT_ACCESS"                        # NFR-08
-SUPPORT_ACCESS_DENIED = "SUPPORT_ACCESS_DENIED"          # NFR-08, TH-09
+SUPPORT_ACCESS_DENIED = "SUPPORT_ACCESS_DENIED"          # NFR-08, TH-10
 
 ACTIONS = {
     LOGIN_SUCCESS, LOGIN_FAILED, ACCOUNT_CREATED, ACCOUNT_DELETED, INACTIVE_ACCOUNT_DELETED,

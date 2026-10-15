@@ -1,4 +1,4 @@
-"""Spots table. Parameterized queries only (SR-15)."""
+"""Spots table. Parameterized queries only (SR-18)."""
 from .db import get_db
 
 

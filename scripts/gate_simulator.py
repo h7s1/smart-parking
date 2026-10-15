@@ -1,7 +1,7 @@
 """Gate simulator (Figure 1): pretends to be the camera at the parking gate.
 
 It sends a license plate and a direction to the server over HTTPS, with the
-gate key from .env (SR-17), and prints the answer (ALLOW or DENY) and how long
+gate key from .env (SR-20), and prints the answer (ALLOW or DENY) and how long
 it took (NFR-02: at most 2 seconds).
 
 Start the server first (python run.py), then in a second terminal:
@@ -28,12 +28,14 @@ sys.path.insert(0, str(BASE_DIR))
 
 from app.config import load_env_file             # noqa: E402
 
-URL = "https://localhost:5000/api/gate/events"
+# 127.0.0.1 rather than "localhost": on Windows, "localhost" is tried over IPv6
+# first, and the failed attempt adds about 2 seconds before every request.
+URL = "https://127.0.0.1:5000/api/gate/events"
 CERT_FILE = BASE_DIR / "certs" / "dev-cert.pem"
 
 
 def tls_context():
-    """Trust only our own development certificate, and check it (SR-13)."""
+    """Trust only our own development certificate, and check it (SR-16)."""
     context = ssl.create_default_context(cafile=str(CERT_FILE))
     # The development certificate is self-signed and has no CA extensions,
     # which Python's strict mode would reject; every other check stays on.

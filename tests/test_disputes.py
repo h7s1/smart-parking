@@ -1,4 +1,4 @@
-"""Disputes and support agent access (FR-15, FR-16, FR-17, SR-06, NFR-08, TH-09)."""
+"""Disputes and support agent access (FR-15, FR-16, FR-17, SR-09, NFR-08, TH-10)."""
 import unittest
 import uuid
 
@@ -69,7 +69,7 @@ class DisputeTests(AppTestCase):
         self.assertEqual(len(self.query("SELECT id FROM disputes")), 1)
 
     def test_driver_cannot_dispute_another_drivers_record(self):
-        """FR-15, SR-05 (negative)"""
+        """FR-15, SR-08 (negative)"""
         response = self.open_dispute(self.omar, reservation_id=self.dana_reservation)
         self.assertEqual(response.status_code, 404)
         self.assertEqual(self.query("SELECT id FROM disputes"), [])
@@ -78,7 +78,7 @@ class DisputeTests(AppTestCase):
         self.assertEqual(self.open_dispute(self.dana).status_code, 201)
         self.assertEqual(self.open_dispute(self.dana, "RESERVATION_NOT_SHOWN").status_code, 409)
 
-    # ----- FR-16, SR-06, NFR-08: support agent -----
+    # ----- FR-16, SR-09, NFR-08: support agent -----
 
     def test_support_sees_all_open_disputes(self):
         """FR-16: with driver IDs only, never emails."""
@@ -90,7 +90,7 @@ class DisputeTests(AppTestCase):
         self.assertNotIn("@test.example", response.get_data(as_text=True))
 
     def test_support_sees_driver_data_only_while_dispute_is_open(self):
-        """SR-06, TH-09: reservations, sessions and plates; never the email or password hash."""
+        """SR-09, TH-10: reservations, sessions and plates; never the email or password hash."""
         self.open_dispute(self.dana)
         response = self.support.get(f"/api/support/drivers/{self.dana_id}")
         self.assertEqual(response.status_code, 200)
@@ -110,7 +110,7 @@ class DisputeTests(AppTestCase):
             self.assertNotIn("vehicles", response.get_json())
 
     def test_every_support_access_is_recorded(self):
-        """NFR-08, TH-06: allowed and refused attempts both go to the audit log."""
+        """NFR-08, TH-07: allowed and refused attempts both go to the audit log."""
         support_id = self.query("SELECT user_id FROM audit_log WHERE action = 'LOGIN_SUCCESS'"
                                 " ORDER BY rowid DESC LIMIT 1")[0]["user_id"]
         self.open_dispute(self.dana)
@@ -121,7 +121,7 @@ class DisputeTests(AppTestCase):
         self.assertEqual([(r["user_id"], r["target_id"]) for r in denied], [(support_id, self.omar_id)])
 
     def test_closing_the_dispute_ends_access(self):
-        """FR-17, SR-06"""
+        """FR-17, SR-09"""
         dispute_id = self.open_dispute(self.dana).get_json()["dispute"]["id"]
         response = self.support.post(f"/api/support/disputes/{dispute_id}/close", json={})
         self.assertEqual(response.status_code, 200)
@@ -142,10 +142,10 @@ class DisputeTests(AppTestCase):
         for bad_id in (str(uuid.uuid4()), "1 OR 1=1"):
             self.assertEqual(self.support.post(f"/api/support/disputes/{bad_id}/close", json={}).status_code, 404)
 
-    # ----- SR-04: least privilege -----
+    # ----- SR-07: least privilege -----
 
     def test_drivers_and_admin_cannot_use_support_functions(self):
-        """SR-04, TH-09 (negative)"""
+        """SR-07, TH-10 (negative)"""
         dispute_id = self.open_dispute(self.dana).get_json()["dispute"]["id"]
         admin = self.login(ADMIN_EMAIL)
         for client in (self.dana, self.omar, admin):
@@ -156,7 +156,7 @@ class DisputeTests(AppTestCase):
         self.assertEqual(self.query("SELECT status FROM disputes")[0]["status"], "OPEN")
 
     def test_support_cannot_use_driver_or_admin_functions(self):
-        """SR-04 (negative)"""
+        """SR-07 (negative)"""
         self.assertEqual(self.open_dispute(self.support).status_code, 403)
         self.assertEqual(self.support.get("/api/parking-history").status_code, 403)
         self.assertEqual(self.support.get("/api/disputes").status_code, 403)
@@ -164,7 +164,7 @@ class DisputeTests(AppTestCase):
                                             json={"status": "DISABLED"}).status_code, 403)
 
     def test_support_has_no_route_that_changes_driver_records(self):
-        """SR-12: the only support action that changes anything is closing a dispute."""
+        """SR-15: the only support action that changes anything is closing a dispute."""
         changing = {
             rule.rule for rule in self.app.url_map.iter_rules()
             if rule.rule.startswith("/api/support/") and rule.methods & {"POST", "PUT", "PATCH", "DELETE"}

@@ -13,7 +13,7 @@ def spot_overview():
     """FR-12: status and reserved times of every spot.
 
     Reserved times include only start and end, never the driver, vehicle or
-    reservation, so the admin cannot see who will be where (SR-11).
+    reservation, so the admin cannot see who will be where (SR-14).
     """
     times = defaultdict(list)
     for row in reservations_repo.list_times_from(clock.to_db(clock.now())):
@@ -46,7 +46,7 @@ def set_spot_status(spot_id, status):
 
 
 def read_audit_log():
-    """FR-14, SR-09: the latest audit entries, read-only."""
+    """FR-14, SR-12: the latest audit entries, read-only."""
     return [
         {
             "time": clock.db_to_api(row["created_at"]),

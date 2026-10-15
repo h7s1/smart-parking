@@ -1,4 +1,4 @@
-# Secrets and local data: never commit these (SR-18)
+# Secrets and local data: never commit these (SR-21)
 .env
 certs/
 instance/

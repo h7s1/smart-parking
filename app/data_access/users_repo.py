@@ -1,4 +1,4 @@
-"""Users table. Parameterized queries only (SR-15)."""
+"""Users table. Parameterized queries only (SR-18)."""
 from .db import get_db
 
 

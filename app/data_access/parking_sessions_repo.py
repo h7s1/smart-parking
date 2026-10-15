@@ -1,8 +1,8 @@
-"""Parking sessions table (the parking history). Parameterized queries only (SR-15).
+"""Parking sessions table (the parking history). Parameterized queries only (SR-18).
 
 A session holds the vehicle ID, the spot and the entry and exit times, never a
 plate or email (PR-05). Queries for one driver go through the vehicles table
-and include "owner_id = ?" (SR-05).
+and include "owner_id = ?" (SR-08).
 """
 from .db import get_db
 

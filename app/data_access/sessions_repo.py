@@ -1,4 +1,4 @@
-"""Login sessions table. Parameterized queries only (SR-15)."""
+"""Login sessions table. Parameterized queries only (SR-18)."""
 from .db import get_db
 
 
@@ -37,7 +37,7 @@ def delete(token_hash):
 
 def delete_idle(cutoff):
     """Remove login sessions with no activity since the cutoff. They already
-    stopped working after 30 minutes (SR-21); this removes the rows."""
+    stopped working after 30 minutes (SR-05); this removes the rows."""
     cursor = get_db().execute(
         "DELETE FROM login_sessions WHERE last_seen_at < ?", (cutoff,)
     )

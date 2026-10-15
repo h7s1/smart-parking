@@ -1,4 +1,4 @@
-"""Password hashing with bcrypt (SR-10).
+"""Password hashing with bcrypt (SR-13).
 
 bcrypt adds a random salt to every password and is deliberately slow, which
 makes guessing passwords from a stolen database expensive. The work factor

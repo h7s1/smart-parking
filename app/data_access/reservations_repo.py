@@ -1,6 +1,6 @@
-"""Reservations table. Parameterized queries only (SR-15).
+"""Reservations table. Parameterized queries only (SR-18).
 
-Queries for one driver include "driver_id = ?" (SR-05).
+Queries for one driver include "driver_id = ?" (SR-08).
 """
 from .db import get_db
 
@@ -55,7 +55,7 @@ def list_times_from(from_time):
     """Spot and times of current and future reservations, for the admin view.
 
     Only spot_id, start_time and end_time are selected: no driver ID, vehicle
-    ID or reservation ID, so the admin never sees who booked a spot (SR-11).
+    ID or reservation ID, so the admin never sees who booked a spot (SR-14).
     """
     return get_db().execute(
         "SELECT spot_id, start_time, end_time FROM reservations"

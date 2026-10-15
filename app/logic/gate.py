@@ -70,7 +70,7 @@ def _exit(vehicle_id, now):
 
 
 def history_for_driver(driver_id):
-    """The driver's own parking history, read only (SR-05, SR-12)."""
+    """The driver's own parking history, read only (SR-08, SR-15)."""
     return [
         {
             "id": row["id"],

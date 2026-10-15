@@ -33,7 +33,7 @@ class VehicleTests(AppTestCase):
         self.assertNotIn("ABC1234", stored)
 
     def test_invalid_plate_rejected(self):
-        """SR-14, NFR-04 (negative)"""
+        """SR-17, NFR-04 (negative)"""
         for plate in ("", "A", "ABCDEFGHIJK", "AB$12", 1234):
             response = self.driver.post("/api/vehicles", json={"plate": plate})
             self.assertEqual(response.status_code, 400, plate)
@@ -85,7 +85,7 @@ class ReservationTests(AppTestCase):
         self.assertEqual(self.driver.delete(f"/api/reservations/{reservation_id}").status_code, 409)
 
     def test_invalid_times_rejected(self):
-        """NFR-04, SR-14 (negative)"""
+        """NFR-04, SR-17 (negative)"""
         now = self.clock()
         cases = [
             (iso(now - timedelta(hours=1)), iso(now + timedelta(hours=1))),      # starts in the past

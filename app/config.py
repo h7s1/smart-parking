@@ -2,7 +2,7 @@
 
 Secrets are never written in the source code. The encryption key and the gate
 key are read from the environment (or a local .env file that is excluded from
-Git) once, when the application starts (SR-17, SR-18).
+Git) once, when the application starts (SR-20, SR-21).
 """
 import base64
 import os
@@ -19,31 +19,32 @@ def utc_now():
 class Config:
     DATABASE = str(BASE_DIR / "instance" / "smart_parking.db")
 
-    # Set from SP_ENCRYPTION_KEY: 32 random bytes, base64-encoded (SR-18).
+    # Set from SP_ENCRYPTION_KEY: 32 random bytes, base64-encoded (SR-21).
     ENCRYPTION_KEY = None
 
     # Set from SP_GATE_KEY: the shared secret the gate simulator sends with
-    # every gate event (SR-17). At least 32 characters.
+    # every gate event (SR-20). At least 32 characters.
     GATE_KEY = None
 
-    # SR-10: bcrypt work factor of at least 10. 12 is the default here.
+    # SR-13: bcrypt work factor of at least 10. 12 is the default here.
     BCRYPT_ROUNDS = 12
 
-    # SR-22: NIST SP 800-63B-4 (report reference [1]) asks for at least
-    # 15 characters when the password is the only factor, and for allowing at
-    # least 64.
-    MIN_PASSWORD_LENGTH = 15
+    # SR-06: at least 8 characters (the team's decision, report Appendix A,
+    # Week 8, Interaction 3). NIST SP 800-63B-4 (report reference [1]) asks
+    # for 15 when the password is the only factor; this is listed as a known
+    # limitation in the report. Up to 64 characters are allowed.
+    MIN_PASSWORD_LENGTH = 8
     MAX_PASSWORD_LENGTH = 64
 
     # SR-02: block login for 15 minutes after 5 consecutive failed attempts.
     LOCKOUT_THRESHOLD = 5
     LOCKOUT_MINUTES = 15
 
-    # SR-21: end a session after 30 minutes without activity.
+    # SR-05: end a session after 30 minutes without activity.
     SESSION_IDLE_MINUTES = 30
     SESSION_COOKIE_NAME = "sp_session"
 
-    # SR-19: reject a client after 60 requests in one minute.
+    # SR-22: reject a client after 60 requests in one minute.
     RATE_LIMIT_PER_MINUTE = 60
 
     # FR-07: a reservation can be cancelled up to 30 minutes before it starts.
@@ -52,7 +53,7 @@ class Config:
     # Assumption (not in the report yet): one reservation lasts at most 24 hours.
     MAX_RESERVATION_HOURS = 24
 
-    # Reject request bodies larger than 16 KB (input handling, SR-14).
+    # Reject request bodies larger than 16 KB (input handling, SR-17).
     MAX_CONTENT_LENGTH = 16 * 1024
 
     # Retention periods from the Personal Data Map (PR-07 to PR-10).
@@ -115,7 +116,7 @@ def check_settings(config):
     if len(raw) != 32:
         raise RuntimeError("SP_ENCRYPTION_KEY must be 32 bytes, base64-encoded.")
     if config.get("BCRYPT_ROUNDS", 0) < 10:
-        raise RuntimeError("BCRYPT_ROUNDS must be at least 10 (SR-10).")
+        raise RuntimeError("BCRYPT_ROUNDS must be at least 10 (SR-13).")
     gate_key = config.get("GATE_KEY")
     if not gate_key or len(gate_key) < 32:
         raise RuntimeError(
