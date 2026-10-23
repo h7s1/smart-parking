@@ -37,6 +37,16 @@ def list_for_driver(driver_id):
     ).fetchall()
 
 
+def get_with_spot(reservation_id):
+    """One reservation, for a support agent through an open dispute (SR-09).
+    The caller checks the dispute first; drivers use get_for_driver instead."""
+    return get_db().execute(
+        "SELECT r.id, r.vehicle_id, r.start_time, r.end_time, s.label AS spot_label"
+        " FROM reservations r JOIN spots s ON s.id = r.spot_id WHERE r.id = ?",
+        (reservation_id,),
+    ).fetchone()
+
+
 def get_for_driver(reservation_id, driver_id):
     return get_db().execute(
         "SELECT id, start_time FROM reservations WHERE id = ? AND driver_id = ?",

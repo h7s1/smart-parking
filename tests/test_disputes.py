@@ -33,6 +33,10 @@ class DisputeTests(AppTestCase):
     def audit(self, action):
         return self.query("SELECT user_id, target_id FROM audit_log WHERE action = ?", (action,))
 
+    def record(self, dispute_id, client=None):
+        """SR-09: what a support agent sees for one dispute."""
+        return (client or self.support).get(f"/api/support/disputes/{dispute_id}/record")
+
     # ----- FR-15: drivers open disputes -----
 
     def test_driver_opens_dispute_about_own_reservation(self):
@@ -89,44 +93,76 @@ class DisputeTests(AppTestCase):
         self.assertEqual({d["driver_id"] for d in disputes}, {self.dana_id, self.omar_id})
         self.assertNotIn("@test.example", response.get_data(as_text=True))
 
-    def test_support_sees_driver_data_only_while_dispute_is_open(self):
-        """SR-09, TH-10: reservations, sessions and plates; never the email or password hash."""
-        self.open_dispute(self.dana)
-        response = self.support.get(f"/api/support/drivers/{self.dana_id}")
+    def test_support_sees_only_the_disputed_record(self):
+        """SR-09, TH-10: the one reservation and its car's plate, nothing else about the driver."""
+        # Dana has a second car and a second reservation that the dispute is not about.
+        dana_car2 = self.add_vehicle(self.dana, "DAN3003")
+        other = self.reserve(self.dana, dana_car2, spot_label="A-02", start_in_hours=5).get_json()
+        other_reservation = other["reservation"]["id"]
+        dispute_id = self.open_dispute(self.dana).get_json()["dispute"]["id"]
+
+        response = self.record(dispute_id)
         self.assertEqual(response.status_code, 200)
         data = response.get_json()
-        self.assertEqual(set(data), {"driver_id", "vehicles", "reservations", "parking_sessions"})
-        self.assertEqual([v["plate"] for v in data["vehicles"]], ["DAN1001"])
-        self.assertEqual([r["id"] for r in data["reservations"]], [self.dana_reservation])
+        self.assertEqual(set(data), {"dispute_id", "about", "record", "plate"})
+        self.assertEqual(data["about"], "RESERVATION")
+        self.assertEqual(data["record"]["id"], self.dana_reservation)
+        self.assertEqual(data["record"]["spot"], "A-01")
+        self.assertEqual(data["plate"], "DAN1001")
         body = response.get_data(as_text=True)
+        self.assertNotIn(other_reservation, body)              # not the other reservation
+        self.assertNotIn("DAN3003", body)                      # not the other car
+        self.assertNotIn(self.dana_id, body)                   # not even the driver ID
         self.assertNotIn("dana@", body)
         self.assertNotIn("$2b$", body)
-        self.assertNotIn("OMR2002", body)                        # nothing about other drivers
+        self.assertNotIn("OMR2002", body)                      # nothing about other drivers
 
-        # Omar has no open dispute; a random ID gets the same answer.
-        for driver_id in (self.omar_id, str(uuid.uuid4())):
-            response = self.support.get(f"/api/support/drivers/{driver_id}")
+    def test_support_sees_the_disputed_visit(self):
+        """SR-09: a dispute about a parking session shows that visit and its car's plate."""
+        self.clock.advance(hours=2, minutes=5)
+        self.assertEqual(self.decision("DAN1001"), "ALLOW")
+        dana = self.login("dana@test.example")
+        session_id = dana.get("/api/parking-history").get_json()["parking_sessions"][0]["id"]
+        dispute = self.open_dispute(dana, "WRONG_ENTRY_OR_EXIT_TIME", parking_session_id=session_id)
+        support = self.login(SUPPORT_EMAIL)                     # the first session timed out (SR-05)
+        data = self.record(dispute.get_json()["dispute"]["id"], support).get_json()
+        self.assertEqual(data["about"], "PARKING_SESSION")
+        self.assertEqual(data["record"]["id"], session_id)
+        self.assertIsNotNone(data["record"]["entry"])
+        self.assertIsNone(data["record"]["exit"])              # the car is still inside
+        self.assertEqual(data["plate"], "DAN1001")
+
+    def test_no_record_without_an_open_dispute(self):
+        """SR-09, TH-10 (negative): a closed dispute and an unknown ID get the same refusal."""
+        dispute_id = self.open_dispute(self.dana).get_json()["dispute"]["id"]
+        self.support.post(f"/api/support/disputes/{dispute_id}/close", json={})
+        for some_id in (dispute_id, str(uuid.uuid4())):
+            response = self.record(some_id)
             self.assertEqual(response.status_code, 403)
-            self.assertNotIn("vehicles", response.get_json())
+            self.assertNotIn("record", response.get_json())
+            self.assertNotIn("DAN1001", response.get_data(as_text=True))
+        self.assertEqual(self.record("1 OR 1=1").status_code, 404)
 
     def test_every_support_access_is_recorded(self):
         """NFR-08, TH-07: allowed and refused attempts both go to the audit log."""
         support_id = self.query("SELECT user_id FROM audit_log WHERE action = 'LOGIN_SUCCESS'"
                                 " ORDER BY rowid DESC LIMIT 1")[0]["user_id"]
-        self.open_dispute(self.dana)
-        self.support.get(f"/api/support/drivers/{self.dana_id}")
-        self.support.get(f"/api/support/drivers/{self.omar_id}")
+        dispute_id = self.open_dispute(self.dana).get_json()["dispute"]["id"]
+        unknown_id = str(uuid.uuid4())
+        self.record(dispute_id)
+        self.record(unknown_id)
         allowed, denied = self.audit("SUPPORT_ACCESS"), self.audit("SUPPORT_ACCESS_DENIED")
-        self.assertEqual([(r["user_id"], r["target_id"]) for r in allowed], [(support_id, self.dana_id)])
-        self.assertEqual([(r["user_id"], r["target_id"]) for r in denied], [(support_id, self.omar_id)])
+        self.assertEqual([(r["user_id"], r["target_id"]) for r in allowed], [(support_id, dispute_id)])
+        self.assertEqual([(r["user_id"], r["target_id"]) for r in denied], [(support_id, unknown_id)])
 
     def test_closing_the_dispute_ends_access(self):
         """FR-17, SR-09"""
         dispute_id = self.open_dispute(self.dana).get_json()["dispute"]["id"]
+        self.assertEqual(self.record(dispute_id).status_code, 200)
         response = self.support.post(f"/api/support/disputes/{dispute_id}/close", json={})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(self.support.get("/api/support/disputes").get_json()["disputes"], [])
-        self.assertEqual(self.support.get(f"/api/support/drivers/{self.dana_id}").status_code, 403)
+        self.assertEqual(self.record(dispute_id).status_code, 403)
         mine = self.dana.get("/api/disputes").get_json()["disputes"][0]
         self.assertEqual(mine["status"], "CLOSED")
         self.assertIsNotNone(mine["closed"])
@@ -150,7 +186,7 @@ class DisputeTests(AppTestCase):
         admin = self.login(ADMIN_EMAIL)
         for client in (self.dana, self.omar, admin):
             self.assertEqual(client.get("/api/support/disputes").status_code, 403)
-            self.assertEqual(client.get(f"/api/support/drivers/{self.dana_id}").status_code, 403)
+            self.assertEqual(self.record(dispute_id, client).status_code, 403)
             self.assertEqual(client.post(f"/api/support/disputes/{dispute_id}/close", json={}).status_code, 403)
         self.assertEqual(self.audit("SUPPORT_ACCESS"), [])
         self.assertEqual(self.query("SELECT status FROM disputes")[0]["status"], "OPEN")
@@ -176,7 +212,7 @@ class DisputeTests(AppTestCase):
     def test_admin_audit_log_shows_dispute_actions_by_id_only(self):
         """NFR-07, NFR-08, PR-06"""
         dispute_id = self.open_dispute(self.dana).get_json()["dispute"]["id"]
-        self.support.get(f"/api/support/drivers/{self.dana_id}")
+        self.record(dispute_id)
         self.support.post(f"/api/support/disputes/{dispute_id}/close", json={})
         response = self.login(ADMIN_EMAIL).get("/api/admin/audit-log")
         actions = {entry["action"] for entry in response.get_json()["entries"]}

@@ -1,19 +1,19 @@
 """Disputes and support agent access (FR-15, FR-16, FR-17, SR-09, NFR-08).
 
 A driver opens a dispute about one of their own reservations or parking
-sessions, choosing a reason from a fixed list. While the driver has an open
-dispute, a support agent can see the driver's reservations, parking sessions
-and plates (SR-09). Every attempt by a support agent to see a driver's data is
-recorded in the audit log, including refused attempts (NFR-08).
+sessions, choosing a reason from a fixed list. While the dispute is open, a
+support agent can see only the record it is about and the plate of that
+record's vehicle (SR-09), not the rest of the driver's reservations, visits or
+cars (data minimization). Every attempt by a support agent to see a disputed
+record is recorded in the audit log, including refused attempts (NFR-08).
 """
 import uuid
 
 from .. import clock
-from ..data_access import disputes_repo, parking_sessions_repo, reservations_repo
+from ..data_access import disputes_repo, parking_sessions_repo, reservations_repo, vehicles_repo
 from ..data_access.db import transaction
 from ..errors import Conflict, Forbidden, NotFound
-from ..security import audit
-from . import gate, reservations, vehicles
+from ..security import audit, crypto
 
 # The fixed list of reasons (FR-15). Same list as the CHECK in schema.sql.
 REASONS = (
@@ -23,7 +23,7 @@ REASONS = (
     "RESERVATION_NOT_SHOWN",
 )
 
-NO_OPEN_DISPUTE = "You can see a driver's data only while the driver has an open dispute."
+NO_OPEN_DISPUTE = "You can see a record only while its dispute is open."
 
 
 def _as_dict(row):
@@ -69,7 +69,7 @@ def list_open():
 
 
 def close_dispute(agent_id, dispute_id):
-    """FR-17. Closing ends the support agent's access to the driver's data."""
+    """FR-17. Closing ends the support agent's access to the disputed record."""
     with transaction(immediate=True):
         status = disputes_repo.get_status(dispute_id)
         if status is None:
@@ -80,22 +80,34 @@ def close_dispute(agent_id, dispute_id):
         audit.record(audit.DISPUTE_CLOSED, user_id=agent_id, target_id=dispute_id)
 
 
-def driver_data_for_support(agent_id, driver_id):
-    """SR-09, NFR-08: a driver's reservations, parking sessions and plates.
+def disputed_record_for_support(agent_id, dispute_id):
+    """SR-09, NFR-08: the one reservation or parking session that an open
+    dispute is about, and the plate of its vehicle. Nothing else about the
+    driver is sent: no other reservations, visits or cars, and never the
+    email or password hash.
 
-    Allowed only while the driver has an open dispute. The attempt is recorded
-    before the answer is sent, whether it is allowed or refused. A driver ID
-    that does not exist gets the same refusal, so IDs cannot be tested.
-    The driver's email and password hash are never part of the answer.
+    The attempt is recorded before the answer is sent, whether it is allowed
+    or refused. A closed dispute and a dispute ID that does not exist get the
+    same refusal, so IDs cannot be tested.
     """
-    allowed = disputes_repo.driver_has_open(driver_id)
+    dispute = disputes_repo.get(dispute_id)
+    allowed = dispute is not None and dispute["status"] == "OPEN"
     audit.record(audit.SUPPORT_ACCESS if allowed else audit.SUPPORT_ACCESS_DENIED,
-                 user_id=agent_id, target_id=driver_id)
+                 user_id=agent_id, target_id=dispute_id)
     if not allowed:
         raise Forbidden(NO_OPEN_DISPUTE)
-    return {
-        "driver_id": driver_id,
-        "vehicles": vehicles.list_vehicles(driver_id),
-        "reservations": reservations.list_for_driver(driver_id),
-        "parking_sessions": gate.history_for_driver(driver_id),
-    }
+
+    if dispute["reservation_id"] is not None:
+        row = reservations_repo.get_with_spot(dispute["reservation_id"])
+        about = "RESERVATION"
+        record = {"id": row["id"], "spot": row["spot_label"],
+                  "start": clock.db_to_api(row["start_time"]),
+                  "end": clock.db_to_api(row["end_time"])}
+    else:
+        row = parking_sessions_repo.get_with_spot(dispute["parking_session_id"])
+        about = "PARKING_SESSION"
+        record = {"id": row["id"], "spot": row["spot_label"],
+                  "entry": clock.db_to_api(row["entry_time"]),
+                  "exit": clock.db_to_api(row["exit_time"])}
+    plate = crypto.decrypt(vehicles_repo.get_plate_ciphertext(row["vehicle_id"]), crypto.PLATE)
+    return {"dispute_id": dispute_id, "about": about, "record": record, "plate": plate}

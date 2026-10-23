@@ -27,6 +27,15 @@ def list_for_owner(owner_id):
     ).fetchall()
 
 
+def get_plate_ciphertext(vehicle_id):
+    """The encrypted plate of one vehicle, for a support agent through an open
+    dispute (SR-09). The caller checks the dispute first."""
+    row = get_db().execute(
+        "SELECT plate_enc FROM vehicles WHERE id = ?", (vehicle_id,)
+    ).fetchone()
+    return row["plate_enc"] if row else None
+
+
 def get_for_owner(vehicle_id, owner_id):
     return get_db().execute(
         "SELECT id FROM vehicles WHERE id = ? AND owner_id = ?",

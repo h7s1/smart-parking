@@ -29,10 +29,9 @@ class Config:
     # SR-13: bcrypt work factor of at least 10. 12 is the default here.
     BCRYPT_ROUNDS = 12
 
-    # SR-06: at least 8 characters (the team's decision, report Appendix A,
-    # Week 8, Interaction 3). NIST SP 800-63B-4 (report reference [1]) asks
-    # for 15 when the password is the only factor; this is listed as a known
-    # limitation in the report. Up to 64 characters are allowed.
+    # SR-06: at least 8 characters (the team's decision in Week 8). NIST SP
+    # 800-63B-4 asks for 15 when the password is the only factor; this is a
+    # known limitation (Week 9 secure coding review). Up to 64 characters.
     MIN_PASSWORD_LENGTH = 8
     MAX_PASSWORD_LENGTH = 64
 
@@ -50,7 +49,7 @@ class Config:
     # FR-07: a reservation can be cancelled up to 30 minutes before it starts.
     CANCEL_DEADLINE_MINUTES = 30
 
-    # Assumption (not in the report yet): one reservation lasts at most 24 hours.
+    # FR-06: one reservation lasts at most 24 hours.
     MAX_RESERVATION_HOURS = 24
 
     # Reject request bodies larger than 16 KB (input handling, SR-17).

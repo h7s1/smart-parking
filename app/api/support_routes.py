@@ -23,9 +23,9 @@ def close_dispute(dispute_id):
     return jsonify(message="Dispute closed.")
 
 
-@bp.get("/support/drivers/<driver_id>")
+@bp.get("/support/disputes/<dispute_id>/record")
 @roles_required(SUPPORT_AGENT)
-def driver_data(driver_id):
-    """SR-09: only while the driver has an open dispute. Every attempt is
-    recorded in the audit log, including refused ones (NFR-08)."""
-    return jsonify(disputes.driver_data_for_support(g.user["id"], validation.path_id(driver_id)))
+def disputed_record(dispute_id):
+    """SR-09: only the record the dispute is about, and only while it is open.
+    Every attempt is recorded in the audit log, including refused ones (NFR-08)."""
+    return jsonify(disputes.disputed_record_for_support(g.user["id"], validation.path_id(dispute_id)))

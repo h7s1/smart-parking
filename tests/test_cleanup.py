@@ -115,6 +115,15 @@ class CleanupTests(AppTestCase):
         self.assertEqual(self.ids("disputes"), {recent, still_open})
         self.assertNotIn(old, self.ids("disputes"))
 
+    def test_closed_dispute_is_deleted_with_its_record(self):
+        """PR-09: a closed dispute goes when the record it is about is deleted,
+        even if that is sooner than 90 days after closing (team decision, Week 9)."""
+        reservation_id = self.add_reservation(31)                 # past its 30 days
+        dispute_id = self.add_dispute(closed_days_ago=5, reservation_id=reservation_id)
+        self.run_cleanup()
+        self.assertNotIn(reservation_id, self.ids("reservations"))
+        self.assertNotIn(dispute_id, self.ids("disputes"))
+
     def test_audit_entries_deleted_after_180_days(self):
         """PR-10 (G5). The trigger still blocks deleting newer entries."""
         old, recent = str(uuid.uuid4()), str(uuid.uuid4())

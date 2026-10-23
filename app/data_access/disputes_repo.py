@@ -40,13 +40,12 @@ def list_open():
     ).fetchall()
 
 
-def driver_has_open(driver_id):
-    """SR-09: the condition for a support agent to see a driver's data."""
-    row = get_db().execute(
-        "SELECT COUNT(*) AS n FROM disputes WHERE driver_id = ? AND status = 'OPEN'",
-        (driver_id,),
+def get(dispute_id):
+    """One dispute and the record it is about (SR-09: what a support agent may see)."""
+    return get_db().execute(
+        "SELECT id, reservation_id, parking_session_id, status FROM disputes WHERE id = ?",
+        (dispute_id,),
     ).fetchone()
-    return row["n"] > 0
 
 
 def get_status(dispute_id):

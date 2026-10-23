@@ -164,7 +164,7 @@
     <section class="panel panel-table">
       <h2>Disputes</h2>
       <p class="hint">Report a problem with a reservation or a visit. While it is open, a support
-        agent can see your reservations, visits and plates, and every look is recorded.</p>
+        agent can see only that reservation or visit and its car's plate, and every look is recorded.</p>
       <form id="dispute-form" class="inline-form">
         <label class="field">About
           <select name="subject" id="dispute-subject" required></select>
@@ -246,24 +246,14 @@
     <section class="panel" id="driver-data" hidden>
       <div class="notice">
         <svg class="icon"><use href="#i-lock"/></svg>
-        <p>You can see this driver's data because they have an open dispute.
-          This view is recorded in the audit log.</p>
+        <p>You can see this record only while its dispute is open, and nothing else
+          about the driver. This view is recorded in the audit log.</p>
       </div>
-      <h2>Driver <span id="driver-data-id" class="id-text"></span></h2>
-      <h3>Vehicles</h3>
-      <ul id="driver-data-vehicles" class="plates"></ul>
-      <h3>Reservations</h3>
+      <h2><span id="driver-data-title">Disputed record</span> <span id="driver-data-id" class="id-text"></span></h2>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Bay</th><th>Vehicle</th><th>Starts</th><th>Ends</th></tr></thead>
-          <tbody id="driver-data-reservations"></tbody>
-        </table>
-      </div>
-      <h3>Parking history</h3>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Bay</th><th>Vehicle</th><th>Entered</th><th>Left</th></tr></thead>
-          <tbody id="driver-data-sessions"></tbody>
+          <thead><tr><th>Bay</th><th>Vehicle</th><th id="driver-data-from">Starts</th><th id="driver-data-to">Ends</th></tr></thead>
+          <tbody id="driver-data-rows"></tbody>
         </table>
       </div>
     </section>

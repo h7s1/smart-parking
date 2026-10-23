@@ -77,8 +77,8 @@ CREATE TABLE IF NOT EXISTS parking_sessions (
 CREATE INDEX IF NOT EXISTS idx_parking_sessions_vehicle ON parking_sessions(vehicle_id);
 
 -- Disputes (FR-15 to FR-17): the reason comes from a fixed list, so there is
--- no free text that could hold extra personal data. While a driver has an OPEN
--- dispute, a support agent can see that driver's data (SR-09).
+-- no free text that could hold extra personal data. While a dispute is OPEN, a
+-- support agent can see the one record it is about and that car's plate (SR-09).
 CREATE TABLE IF NOT EXISTS disputes (
     id                  TEXT PRIMARY KEY,           -- random UUID (SR-10)
     driver_id           TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,

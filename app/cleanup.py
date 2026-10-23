@@ -2,7 +2,7 @@
 
   PR-07  parking sessions 90 days after entry, unless linked to an open dispute
   PR-08  reservations 30 days after they end, unless linked to an open dispute
-  PR-09  disputes 90 days after they are closed
+  PR-09  disputes 90 days after they are closed, or sooner with their record
   PR-10  audit log entries 180 days after they are created
   Data map: accounts after 12 months without a login, and login sessions that
   have expired (SR-05)

@@ -53,6 +53,16 @@ def list_for_owner(owner_id):
     ).fetchall()
 
 
+def get_with_spot(session_id):
+    """One parking session, for a support agent through an open dispute (SR-09).
+    The caller checks the dispute first; drivers use get_for_owner instead."""
+    return get_db().execute(
+        "SELECT ps.id, ps.vehicle_id, ps.entry_time, ps.exit_time, s.label AS spot_label"
+        " FROM parking_sessions ps JOIN spots s ON s.id = ps.spot_id WHERE ps.id = ?",
+        (session_id,),
+    ).fetchone()
+
+
 def get_for_owner(session_id, owner_id):
     return get_db().execute(
         "SELECT ps.id FROM parking_sessions ps"

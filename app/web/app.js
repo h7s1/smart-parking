@@ -38,7 +38,7 @@ const EVENTS = {
   INACTIVE_ACCOUNT_DELETED: ["Inactive account deleted", ""],
   DISPUTE_OPENED: ["Dispute opened", ""],
   DISPUTE_CLOSED: ["Dispute closed", ""],
-  SUPPORT_ACCESS: ["Support viewed driver data", "support"],
+  SUPPORT_ACCESS: ["Support viewed a disputed record", "support"],
   SUPPORT_ACCESS_DENIED: ["Support access refused", "alert"],
 };
 
@@ -508,7 +508,7 @@ async function loadSupport() {
   fillTable("open-dispute-rows", disputes, "No open disputes. Nothing to do right now.", 5, (d) => {
     const actions = cell("", "actions");
     actions.append(
-      button("View driver data", () => run(() => showDriverData(d.driver_id))),
+      button("View disputed record", () => run(() => showDisputedRecord(d.id))),
       button("Close dispute", () => run(async () => {
         const data = await api("POST", "/support/disputes/" + d.id + "/close", {});
         toast(data.message, false);
@@ -522,24 +522,23 @@ async function loadSupport() {
   });
 }
 
-// SR-09: the server answers only while the driver has an open dispute, and
-// records every request in the audit log (NFR-08).
-async function showDriverData(driverId) {
+// SR-09: the server answers only while the dispute is open, sends only the
+// record the dispute is about and its car's plate, and records every request
+// in the audit log (NFR-08).
+async function showDisputedRecord(disputeId) {
   $("driver-data").hidden = true;
-  const data = await api("GET", "/support/drivers/" + encodeURIComponent(driverId));
-  $("driver-data-id").textContent = data.driver_id.slice(0, 8);
-  $("driver-data-id").title = data.driver_id;
-
-  const owned = Object.fromEntries(data.vehicles.map((v) => [v.id, v.plate]));
-  const list = $("driver-data-vehicles");
-  list.replaceChildren(...data.vehicles.map((v) => { const li = el("li"); li.append(plate(v.plate)); return li; }));
-  if (data.vehicles.length === 0) list.append(el("li", "muted", "No vehicles."));
-
-  fillTable("driver-data-reservations", data.reservations, "No reservations.", 4, (r) =>
-    row(cell(r.spot, "bay-cell"), cell(plate(owned[r.vehicle_id])), cell(when(r.start)), cell(when(r.end))));
-  fillTable("driver-data-sessions", data.parking_sessions, "No visits.", 4, (v) =>
-    row(cell(v.spot, "bay-cell"), cell(plate(owned[v.vehicle_id])), cell(when(v.entry)),
-        cell(v.exit ? when(v.exit) : badge("OCCUPIED", "Still parked"))));
+  const data = await api("GET", "/support/disputes/" + encodeURIComponent(disputeId) + "/record");
+  const r = data.record;
+  const isReservation = data.about === "RESERVATION";
+  $("driver-data-title").textContent = isReservation ? "Disputed reservation" : "Disputed visit";
+  $("driver-data-id").textContent = data.dispute_id.slice(0, 8);
+  $("driver-data-id").title = data.dispute_id;
+  $("driver-data-from").textContent = isReservation ? "Starts" : "Entered";
+  $("driver-data-to").textContent = isReservation ? "Ends" : "Left";
+  const end = isReservation ? when(r.end) : (r.exit ? when(r.exit) : badge("OCCUPIED", "Still parked"));
+  fillTable("driver-data-rows", [r], "", 4, () =>
+    row(cell(r.spot, "bay-cell"), cell(plate(data.plate)),
+        cell(when(isReservation ? r.start : r.entry)), cell(end)));
   $("driver-data").hidden = false;
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   $("driver-data").scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });

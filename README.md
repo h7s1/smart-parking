@@ -78,7 +78,7 @@ would be sent (FR-08), with most of the address hidden.
 python -m unittest discover -s tests -v
 ```
 
-115 tests. Each test names the requirement it checks, and tests marked
+118 tests. Each test names the requirement it checks, and tests marked
 "(negative)" try an attack and confirm the system refuses it. These can be
 reused as evidence for the Week 11 security testing.
 
@@ -129,7 +129,7 @@ And a gate event (flow 2):
 | NFR-05 99% available from 7:00 to 23:00 | A target for a real deployment; it cannot be shown with a local prototype | (report) |
 | NFR-06 recover within 2 minutes | SQLite transactions (nothing half-saved); the server restarts in seconds | test_authentication |
 | NFR-07 log logins and account changes | `security/audit.py` | test_authentication |
-| NFR-08 log every support agent access | `logic/disputes.py` `driver_data_for_support` | test_disputes |
+| NFR-08 log every support agent access | `logic/disputes.py` `disputed_record_for_support` | test_disputes |
 | NFR-09 no double booking | `logic/reservations.py` (write lock + overlap check) | test_parking |
 | SR-01, SR-02 login and 15-minute block | `logic/accounts.py` `log_in` | test_authentication |
 | SR-03, SR-07 login and role on the server | `api/guards.py` | test_authorization, test_disputes |
@@ -137,7 +137,7 @@ And a gate event (flow 2):
 | SR-05 session ends after 30 idle minutes | `security/sessions.py` `current_user` | test_authentication, test_cleanup |
 | SR-06 passwords of 8 to 64 characters | `api/validation.py` `new_password`, `config.py` | test_authentication |
 | SR-08 own records only | `data_access/*_repo.py` (`owner_id = ?`, `driver_id = ?`) | test_authorization, test_disputes, test_gate |
-| SR-09 support access only with an open dispute | `logic/disputes.py`, `data_access/disputes_repo.py` | test_disputes |
+| SR-09 support sees only the disputed record and its plate, while the dispute is open | `logic/disputes.py` `disputed_record_for_support`, `data_access/disputes_repo.py` | test_disputes |
 | SR-10 random UUIDs | every `uuid.uuid4()` | test_authorization |
 | SR-11, SR-12 audit account changes; admin reads log | `security/audit.py`, `api/admin_routes.py` | test_authentication, test_authorization |
 | SR-13 bcrypt, work factor >= 10 | `security/passwords.py`, `config.py` | test_authentication, test_input_and_errors |
@@ -156,6 +156,7 @@ And a gate event (flow 2):
 | PR-05, PR-06 IDs only in sessions and audit log | `schema.sql`, `security/audit.py` | test_gate, test_disputes |
 | PR-07 to PR-10 retention periods | `cleanup.py`, `delete_expired()` in `data_access/` | test_cleanup |
 | PR-11 deleting the account deletes the data | `ON DELETE CASCADE` in `schema.sql` | test_authentication, test_disputes |
+| Data map: 12 months without login | `cleanup.py`, `users_repo.list_inactive` | test_cleanup |
 
 Requirement and threat IDs follow the numbering of the comprehensive project
 report. SR-04 to SR-06 were added in Week 8 (logout, idle timeout, password
@@ -166,12 +167,11 @@ code although they are not in the requirement list: requests that change data
 must be JSON (with the SameSite cookie, this blocks cross-site request forgery;
 `app/__init__.py` `protect_api`), and database triggers stop any change to an
 audit entry or its deletion before 180 days (`schema.sql`). Both have tests.
-| Data map: 12 months without login | `cleanup.py`, `users_repo.list_inactive` | test_cleanup |
 
-## Decisions made while building Week 9 (for the team to review)
+## Decisions made while building Week 9 (accepted by the team)
 
-These are choices the requirements did not settle. Each one should be accepted
-by the team and, where it changes the design, written into the report.
+These are choices the requirements did not settle. The team reviewed them in
+Week 9; where a decision changed the design, the report was updated.
 
 1. **Parking sessions store the spot.** `parking_sessions.spot_id` was added so
    the gate can set the spot to OCCUPIED on entry and back to FREE on exit
@@ -189,10 +189,14 @@ by the team and, where it changes the design, written into the report.
 6. **Closed disputes go with their record.** When a reservation or parking
    session reaches the end of its retention, the closed disputes about it are
    deleted with it (cascade), which can be sooner than 90 days after closing.
-7. **Support access covers all of the driver's reservations, parking
-   sessions and plates** while any of the driver's disputes is open, as SR-09
-   is worded. A refused attempt (no open dispute, or an unknown ID) is
-   recorded as `SUPPORT_ACCESS_DENIED`.
+   PR-09 and the Personal Data Map were reworded to say so.
+7. **A support agent sees only the disputed record.** While a dispute is
+   open, the support agent sees the one reservation or parking session it is
+   about and the plate of that record's car, and nothing else about the
+   driver (data minimization). This replaced the first version, which showed
+   all of the driver's reservations, visits and plates; SR-09 was reworded.
+   A refused attempt (closed dispute or unknown ID) is recorded as
+   `SUPPORT_ACCESS_DENIED`.
 8. **New audit actions:** `DISPUTE_OPENED`, `DISPUTE_CLOSED`, `SUPPORT_ACCESS`,
    `SUPPORT_ACCESS_DENIED`, `INACTIVE_ACCOUNT_DELETED` (user ID empty: done by
    the system).
@@ -215,6 +219,9 @@ by the team and, where it changes the design, written into the report.
   credential (for example a client certificate).
 * **The cleanup job runs inside the server process.** If the server is down at
   the daily time, the job runs at the next start.
+* **Sessions have no maximum length.** A session ends at logout or after 30
+  minutes without activity (SR-04, SR-05), but one that is used at least every
+  30 minutes never ends. A fixed limit (for example, 12 hours) would close it.
 * **Request counts are kept in memory.** They reset when the server restarts.
 * **Password length.** SR-06 asks for at least 8 characters (team decision).
   NIST SP 800-63B-4 asks for 15 when the password is the only login factor, as
