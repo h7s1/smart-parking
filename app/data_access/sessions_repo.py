@@ -17,7 +17,7 @@ def get_with_role(token_hash):
     cookie or the request, so a client cannot change its own role (FR-02).
     """
     return get_db().execute(
-        "SELECT s.user_id, s.last_seen_at, u.role"
+        "SELECT s.user_id, s.created_at, s.last_seen_at, u.role"
         " FROM login_sessions s JOIN users u ON u.id = s.user_id"
         " WHERE s.token_hash = ?",
         (token_hash,),
@@ -40,5 +40,14 @@ def delete_idle(cutoff):
     stopped working after 30 minutes (SR-05); this removes the rows."""
     cursor = get_db().execute(
         "DELETE FROM login_sessions WHERE last_seen_at < ?", (cutoff,)
+    )
+    return cursor.rowcount
+
+
+def delete_started_before(cutoff):
+    """Remove login sessions created before the cutoff. They already stopped
+    working at their maximum length (SR-23); this removes the rows."""
+    cursor = get_db().execute(
+        "DELETE FROM login_sessions WHERE created_at < ?", (cutoff,)
     )
     return cursor.rowcount

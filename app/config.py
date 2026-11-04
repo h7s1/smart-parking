@@ -41,6 +41,9 @@ class Config:
 
     # SR-05: end a session after 30 minutes without activity.
     SESSION_IDLE_MINUTES = 30
+    # SR-23: end every session after a maximum length, even if it is still in
+    # use. Roles with more privileges get shorter sessions.
+    SESSION_MAX_HOURS = {"DRIVER": 12, "ADMIN": 8, "SUPPORT_AGENT": 8}
     SESSION_COOKIE_NAME = "sp_session"
 
     # SR-22: reject a client after 60 requests in one minute.

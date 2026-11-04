@@ -5,7 +5,7 @@
   PR-09  disputes 90 days after they are closed, or sooner with their record
   PR-10  audit log entries 180 days after they are created
   Data map: accounts after 12 months without a login, and login sessions that
-  have expired (SR-05)
+  have expired (SR-05, SR-23)
 
 Deleting a reservation or parking session also deletes the closed disputes
 about it (ON DELETE CASCADE in schema.sql).
@@ -53,6 +53,8 @@ def run():
 
         deleted["login_sessions"] = sessions_repo.delete_idle(
             before(minutes=config["SESSION_IDLE_MINUTES"]))
+        deleted["login_sessions"] += sessions_repo.delete_started_before(
+            before(hours=max(config["SESSION_MAX_HOURS"].values())))
     return deleted
 
 

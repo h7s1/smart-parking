@@ -1,4 +1,4 @@
-"""Login sessions kept on the server (FR-02, SR-03, SR-04, SR-05).
+"""Login sessions kept on the server (FR-02, SR-03, SR-04, SR-05, SR-23).
 
 On login the server creates a random 256-bit token. The browser keeps the
 token in a cookie; the database keeps only its SHA-256 hash.
@@ -11,7 +11,9 @@ Cookie settings:
     start on another website (protection against cross-site request forgery).
 
 Because sessions live on the server, logging out really ends the session, and
-a session ends after 30 minutes without activity.
+a session ends after 30 minutes without activity. Every session also has a
+maximum length (12 hours for drivers, 8 hours for admins and support agents),
+after which the user must log in again, even if the session is still in use.
 """
 import hashlib
 import secrets
@@ -50,7 +52,8 @@ def start(user_id):
 def current_user():
     """Return {"id", "role"} for the request's session, or None.
 
-    Ends the session if it has been idle for longer than SESSION_IDLE_MINUTES.
+    Ends the session if it has been idle for longer than SESSION_IDLE_MINUTES,
+    or if it is older than the maximum length for the user's role.
     """
     token = _token_from_request()
     if token is None:
@@ -64,6 +67,11 @@ def current_user():
     idle_limit = timedelta(minutes=current_app.config["SESSION_IDLE_MINUTES"])
     if now - clock.from_db(row["last_seen_at"]) > idle_limit:
         sessions_repo.delete(token_hash)          # SR-05: idle timeout
+        return None
+
+    max_length = timedelta(hours=current_app.config["SESSION_MAX_HOURS"][row["role"]])
+    if now - clock.from_db(row["created_at"]) > max_length:
+        sessions_repo.delete(token_hash)          # SR-23: maximum session length
         return None
 
     sessions_repo.touch(token_hash, clock.to_db(now))
