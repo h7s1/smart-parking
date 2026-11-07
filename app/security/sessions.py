@@ -11,9 +11,10 @@ Cookie settings:
     start on another website (protection against cross-site request forgery).
 
 Because sessions live on the server, logging out really ends the session, and
-a session ends after 30 minutes without activity. Every session also has a
-maximum length (12 hours for drivers, 8 hours for admins and support agents),
-after which the user must log in again, even if the session is still in use.
+a session ends after a time without activity (30 minutes for drivers, 15
+minutes for admins and support agents). Every session also has a maximum
+length (12 hours for drivers, 4 hours for admins and support agents), after
+which the user must log in again, even if the session is still in use.
 """
 import hashlib
 import secrets
@@ -52,8 +53,8 @@ def start(user_id):
 def current_user():
     """Return {"id", "role"} for the request's session, or None.
 
-    Ends the session if it has been idle for longer than SESSION_IDLE_MINUTES,
-    or if it is older than the maximum length for the user's role.
+    Ends the session if it has been idle for longer than the idle limit for
+    the user's role, or if it is older than the maximum length for the role.
     """
     token = _token_from_request()
     if token is None:
@@ -64,7 +65,7 @@ def current_user():
         return None
 
     now = clock.now()
-    idle_limit = timedelta(minutes=current_app.config["SESSION_IDLE_MINUTES"])
+    idle_limit = timedelta(minutes=current_app.config["SESSION_IDLE_MINUTES"][row["role"]])
     if now - clock.from_db(row["last_seen_at"]) > idle_limit:
         sessions_repo.delete(token_hash)          # SR-05: idle timeout
         return None

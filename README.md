@@ -78,12 +78,12 @@ would be sent (FR-08), with most of the address hidden.
 python -m unittest discover -s tests -v
 ```
 
-126 tests. Each test names the requirement it checks, and tests marked
+128 tests. Each test names the requirement it checks, and tests marked
 "(negative)" try an attack and confirm the system refuses it.
 
 `tests/test_week11_findings.py` (Week 11) checks the maximum session length
-added in Week 11 (SR-23, F-05) and validates the open and accepted review
-findings.
+added in Week 11 (SR-23, F-05), the shorter idle timeout for admins and
+support agents (SR-05), and validates the open and accepted review findings.
 
 ## Code structure (matches Figure 1 of the report)
 
@@ -137,8 +137,8 @@ And a gate event (flow 2):
 | SR-01, SR-02 login and 15-minute block | `logic/accounts.py` `log_in` | test_authentication |
 | SR-03, SR-07 login and role on the server | `api/guards.py` | test_authorization, test_disputes |
 | SR-04 logout ends the session | `api/auth_routes.py` `logout`, `security/sessions.py` | test_authentication |
-| SR-05 session ends after 30 idle minutes | `security/sessions.py` `current_user` | test_authentication, test_cleanup |
-| SR-23 maximum session length (12 h drivers, 8 h admins and support agents) | `security/sessions.py` `current_user`, `config.py`, `cleanup.py` | test_week11_findings |
+| SR-05 session ends after 30 idle minutes (15 for admins and support agents) | `security/sessions.py` `current_user`, `config.py` | test_authentication, test_cleanup, test_week11_findings |
+| SR-23 maximum session length (12 h drivers, 4 h admins and support agents) | `security/sessions.py` `current_user`, `config.py`, `cleanup.py` | test_week11_findings |
 | SR-06 passwords of 8 to 64 characters | `api/validation.py` `new_password`, `config.py` | test_authentication |
 | SR-08 own records only | `data_access/*_repo.py` (`owner_id = ?`, `driver_id = ?`) | test_authorization, test_disputes, test_gate |
 | SR-09 support sees only the disputed record and its plate, while the dispute is open | `logic/disputes.py` `disputed_record_for_support`, `data_access/disputes_repo.py` | test_disputes |

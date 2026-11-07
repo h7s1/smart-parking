@@ -2,7 +2,8 @@
 
 Most tests here validate an open or accepted finding: they show that it really
 exists in the code (Table 23 for F-xx, Table 29 for P-xx in the report).
-The session tests check the fix for F-05 (SR-23), which was added in Week 11.
+The session tests check the fix for F-05 (SR-23) and the shorter idle timeout
+for admins and support agents (SR-05), which were added in Week 11.
 All data is synthetic.
 """
 import unittest
@@ -29,37 +30,38 @@ class PasswordLengthFinding(AppTestCase):
 class MaximumSessionLength(AppTestCase):
     """F-05, fixed in Week 11 (SR-23). Before the fix, a session that was used at
     least every 30 minutes never ended, because there was only an idle timeout
-    (SR-05). Now every session ends after 12 hours for drivers and 8 hours for
+    (SR-05). Now every session ends after 12 hours for drivers and 4 hours for
     admins and support agents, even if it is still in use.
     """
 
-    STEP_MINUTES = 25          # shorter than the 30-minute idle timeout
+    STEP_MINUTES = 25          # shorter than the drivers' 30-minute idle timeout
 
-    def assert_session_ends_after(self, browser, path, hours):
+    def assert_session_ends_after(self, browser, path, hours, step):
         elapsed = 0
-        while elapsed + self.STEP_MINUTES <= hours * 60:
-            self.clock.advance(minutes=self.STEP_MINUTES)
-            elapsed += self.STEP_MINUTES
+        while elapsed + step <= hours * 60:
+            self.clock.advance(minutes=step)
+            elapsed += step
             self.assertEqual(browser.get(path).status_code, 200)    # still inside the limit
-        self.clock.advance(minutes=self.STEP_MINUTES)                # now past the limit
+        self.clock.advance(minutes=step)                             # now past the limit
         self.assertEqual(browser.get(path).status_code, 401)
 
     def test_driver_session_ends_after_12_hours(self):
         """SR-23 (negative): a driver's session in use for more than 12 hours ends."""
         driver = self.new_driver("dana@test.example")
-        self.assert_session_ends_after(driver, "/api/me", hours=12)
+        self.assert_session_ends_after(driver, "/api/me", hours=12, step=25)
         self.login("dana@test.example")                              # a new login works
 
-    def test_admin_session_ends_after_8_hours(self):
-        """SR-23 (negative): an admin's session in use for more than 8 hours ends."""
+    def test_admin_session_ends_after_4_hours(self):
+        """SR-23 (negative): an admin's session in use for more than 4 hours ends."""
         admin = self.login(ADMIN_EMAIL)
-        self.assert_session_ends_after(admin, "/api/admin/spots", hours=8)
+        # used every 10 minutes, so the 15-minute idle timeout never ends it
+        self.assert_session_ends_after(admin, "/api/admin/spots", hours=4, step=10)
         self.login(ADMIN_EMAIL)
 
-    def test_support_agent_session_ends_after_8_hours(self):
-        """SR-23 (negative): a support agent's session in use for more than 8 hours ends."""
+    def test_support_agent_session_ends_after_4_hours(self):
+        """SR-23 (negative): a support agent's session in use for more than 4 hours ends."""
         support = self.login(SUPPORT_EMAIL)
-        self.assert_session_ends_after(support, "/api/support/disputes", hours=8)
+        self.assert_session_ends_after(support, "/api/support/disputes", hours=4, step=10)
         self.login(SUPPORT_EMAIL)
 
     def test_cleanup_removes_sessions_past_the_maximum_length(self):
@@ -72,6 +74,26 @@ class MaximumSessionLength(AppTestCase):
         with self.app.app_context():
             cleanup.run()
         self.assertEqual(len(self.query("SELECT token_hash FROM login_sessions")), 0)
+
+
+class IdleTimeoutByRole(AppTestCase):
+    """SR-05, changed in Week 11: admins and support agents can see more data,
+    so their sessions end after 15 minutes without activity instead of 30. A
+    computer left open can then be used by someone else for a shorter time."""
+
+    def assert_idle_limit(self, browser, path):
+        self.clock.advance(minutes=14)
+        self.assertEqual(browser.get(path).status_code, 200)    # activity resets the timer
+        self.clock.advance(minutes=16)
+        self.assertEqual(browser.get(path).status_code, 401)    # 16 idle minutes: ended
+
+    def test_admin_session_ends_after_15_idle_minutes(self):
+        """SR-05 (negative): an admin's session ends after 15 minutes without activity."""
+        self.assert_idle_limit(self.login(ADMIN_EMAIL), "/api/admin/spots")
+
+    def test_support_agent_session_ends_after_15_idle_minutes(self):
+        """SR-05 (negative): a support agent's session ends after 15 minutes without activity."""
+        self.assert_idle_limit(self.login(SUPPORT_EMAIL), "/api/support/disputes")
 
 
 class RegistrationFinding(AppTestCase):

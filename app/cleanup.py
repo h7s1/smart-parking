@@ -52,7 +52,7 @@ def run():
         deleted["inactive_accounts"] = len(inactive)
 
         deleted["login_sessions"] = sessions_repo.delete_idle(
-            before(minutes=config["SESSION_IDLE_MINUTES"]))
+            before(minutes=max(config["SESSION_IDLE_MINUTES"].values())))
         deleted["login_sessions"] += sessions_repo.delete_started_before(
             before(hours=max(config["SESSION_MAX_HOURS"].values())))
     return deleted

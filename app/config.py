@@ -39,11 +39,14 @@ class Config:
     LOCKOUT_THRESHOLD = 5
     LOCKOUT_MINUTES = 15
 
-    # SR-05: end a session after 30 minutes without activity.
-    SESSION_IDLE_MINUTES = 30
+    # SR-05: end a session after a time without activity. Admins and support
+    # agents can see more data, so a computer left open is a bigger risk, and
+    # their sessions end after 15 minutes (the NIST SP 800-63B-4 limit for AAL3).
+    SESSION_IDLE_MINUTES = {"DRIVER": 30, "ADMIN": 15, "SUPPORT_AGENT": 15}
     # SR-23: end every session after a maximum length, even if it is still in
-    # use. Roles with more privileges get shorter sessions.
-    SESSION_MAX_HOURS = {"DRIVER": 12, "ADMIN": 8, "SUPPORT_AGENT": 8}
+    # use. Roles with more privileges get shorter sessions: 4 hours is the
+    # lower end of what OWASP suggests for an application used during a work day.
+    SESSION_MAX_HOURS = {"DRIVER": 12, "ADMIN": 4, "SUPPORT_AGENT": 4}
     SESSION_COOKIE_NAME = "sp_session"
 
     # SR-22: reject a client after 60 requests in one minute.
