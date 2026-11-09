@@ -64,7 +64,7 @@ class PrivacyNotice(AppTestCase):
 
     def test_create_account_tab_has_the_privacy_notice(self):
         """P-01: the page has the notice and a required "I have read" box."""
-        page = self.client().get("/").get_data(as_text=True)
+        response = self.client().get("/"); page = response.get_data(as_text=True); response.close()
         self.assertIn('id="privacy-notice"', page)
         for text in ("What we collect", "Why", "Who can see it", "How long we keep it",
                      "What you can do", "kept for 180 days"):
@@ -189,7 +189,7 @@ class VehicleRemovalWarning(AppTestCase):
 
     def test_driver_page_asks_before_removing_a_car(self):
         """P-03: the remove button asks for confirmation and says what is deleted."""
-        script = self.client().get("/app.js").get_data(as_text=True)
+        response = self.client().get("/app.js"); script = response.get_data(as_text=True); response.close()
         self.assertIn("Its reservations and parking history will also be deleted", script)
         self.assertIn("window.confirm", script)
 
