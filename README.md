@@ -78,12 +78,18 @@ would be sent (FR-08), with most of the address hidden.
 python -m unittest discover -s tests -v
 ```
 
-128 tests. Each test names the requirement it checks, and tests marked
+145 tests. Each test names the requirement it checks, and tests marked
 "(negative)" try an attack and confirm the system refuses it.
 
 `tests/test_week11_findings.py` (Week 11) checks the maximum session length
 added in Week 11 (SR-23, F-05), the shorter idle timeout for admins and
 support agents (SR-05), and validates the open and accepted review findings.
+Its tests for F-08, P-02 and P-03 became retests in Week 12.
+
+`tests/test_week12_remediation.py` (Week 12) retests the fixes of the
+remediation phase: the password blocklist (SR-06, F-04), work emails only
+(F-08), the privacy notice (P-01), Download my data (P-02), and changing the
+email or password and the warning before removing a car (P-03).
 
 ## Code structure (matches Figure 1 of the report)
 
@@ -139,7 +145,7 @@ And a gate event (flow 2):
 | SR-04 logout ends the session | `api/auth_routes.py` `logout`, `security/sessions.py` | test_authentication |
 | SR-05 session ends after 30 idle minutes (15 for admins and support agents) | `security/sessions.py` `current_user`, `config.py` | test_authentication, test_cleanup, test_week11_findings |
 | SR-23 maximum session length (12 h drivers, 4 h admins and support agents) | `security/sessions.py` `current_user`, `config.py`, `cleanup.py` | test_week11_findings |
-| SR-06 passwords of 8 to 64 characters | `api/validation.py` `new_password`, `config.py` | test_authentication |
+| SR-06 passwords of 8 to 64 characters, not on the blocklist (Week 12) | `api/validation.py` `new_password`, `security/password_blocklist.py`, `config.py` | test_authentication, test_week12_remediation |
 | SR-08 own records only | `data_access/*_repo.py` (`owner_id = ?`, `driver_id = ?`) | test_authorization, test_disputes, test_gate |
 | SR-09 support sees only the disputed record and its plate, while the dispute is open | `logic/disputes.py` `disputed_record_for_support`, `data_access/disputes_repo.py` | test_disputes |
 | SR-10 random UUIDs | every `uuid.uuid4()` | test_authorization |
@@ -161,6 +167,10 @@ And a gate event (flow 2):
 | PR-07 to PR-10 retention periods | `cleanup.py`, `delete_expired()` in `data_access/` | test_cleanup |
 | PR-11 deleting the account deletes the data | `ON DELETE CASCADE` in `schema.sql` | test_authentication, test_disputes |
 | Data map: 12 months without login | `cleanup.py`, `users_repo.list_inactive` | test_cleanup |
+| F-08 only work emails of the complex (Week 12) | `logic/accounts.py` `_check_work_email`, `config.py` `ALLOWED_EMAIL_DOMAINS` | test_week11_findings, test_week12_remediation |
+| P-01 privacy notice before registration (Week 12) | `web/index.html` (Create account tab) | test_week12_remediation |
+| P-02 Download my data (Week 12) | `logic/my_data.py`, `POST /api/account/export` | test_week12_remediation |
+| P-03 change email and password, warning before removing a car (Week 12) | `logic/accounts.py`, `POST /api/account/email`, `POST /api/account/password`, `web/app.js` | test_week12_remediation |
 
 Requirement and threat IDs follow the numbering of the comprehensive project
 report. SR-04 to SR-06 were added in Week 8 (logout, idle timeout, password
@@ -224,8 +234,16 @@ Week 9; where a decision changed the design, the report was updated.
 * **The cleanup job runs inside the server process.** If the server is down at
   the daily time, the job runs at the next start.
 * **Request counts are kept in memory.** They reset when the server restarts.
-* **Password length.** SR-06 asks for at least 8 characters (team decision).
-  NIST SP 800-63B-4 asks for 15 when the password is the only login factor, as
-  it is here, so a real deployment should require 15 or add a second factor.
+* **Password length.** SR-06 asks for at least 8 characters (team decision,
+  F-04 accepted). NIST SP 800-63B-4 asks for 15 when the password is the only
+  login factor, as it is here, so a real deployment should require 15 or add a
+  second factor. Since Week 12, new passwords are checked against a blocklist,
+  but the list in `security/common_passwords.txt` is small; a real system would
+  use a much larger list or a breached-password service.
+* **Work email domains.** The allowed domains are a fixed list in `config.py`
+  and the email is not verified, so someone who knows a work email can still
+  register with it. A real system would send a confirmation link.
+* **Download my data** does not include the audit log entries about the driver;
+  the file says they are kept for 180 days for security reasons.
 * **Flask's built-in server and a self-signed certificate** are used for the
   prototype; neither is meant for production.

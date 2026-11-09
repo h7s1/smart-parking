@@ -66,6 +66,7 @@ class AppTestCase(unittest.TestCase):
             "BCRYPT_ROUNDS": 10,                   # the minimum SR-13 allows
             "CLOCK": self.clock,
             "RATE_LIMIT_PER_MINUTE": self.rate_limit,
+            "ALLOWED_EMAIL_DOMAINS": ("test.example",),   # F-08: the synthetic work domain in tests
             "EMAIL_SENDER": lambda to, subject, body: self.sent_emails.append(
                 {"to": to, "subject": subject, "body": body}),
         })

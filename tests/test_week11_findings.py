@@ -1,7 +1,8 @@
 """Week 11: tests for the review findings.
 
 Most tests here validate an open or accepted finding: they show that it really
-exists in the code (Table 23 for F-xx, Table 29 for P-xx in the report).
+exists in the code (Table 23 for F-xx, Table 29 for P-xx in the report). The
+tests for F-08, P-02 and P-03 were changed in Week 12 into retests of the fixes.
 The session tests check the fix for F-05 (SR-23) and the shorter idle timeout
 for admins and support agents (SR-05), which were added in Week 11.
 All data is synthetic.
@@ -110,31 +111,38 @@ class RegistrationFinding(AppTestCase):
 
 
 class OpenRegistrationFinding(AppTestCase):
-    """F-08 (new in Week 11, open): the car park is for the employees of the
-    business complex (Introduction: Scope), but any email can register."""
+    """F-08 (found in Week 11, fixed in Week 12): the car park is for the
+    employees of the business complex (Introduction: Scope). In Week 11 this
+    test showed that any email could register. The same test is now the
+    retest: an email from outside the complex is refused."""
 
-    def test_any_email_can_register_as_a_driver(self):
-        """F-08 confirmed: an email from outside the complex gets a driver account."""
-        self.assertEqual(self.register("visitor@outside.example").status_code, 201)
-        self.login("visitor@outside.example")
+    def test_email_from_outside_the_complex_is_refused(self):
+        """F-08 retest (negative): an email from outside the complex gets no account."""
+        response = self.register("visitor@outside.example")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("work email", response.get_json()["error"])
+        login = self.client().post("/api/login", json={"email": "visitor@outside.example",
+                                                       "password": "correct horse battery staple"})
+        self.assertEqual(login.status_code, 401)
 
 
 class DriverRightsFindings(AppTestCase):
-    """P-02 and P-03 (open, Week 12): missing driver rights from the PDPL review."""
+    """P-02 and P-03 (found in Week 10, fixed in Week 12): missing driver rights
+    from the PDPL review. In Week 11 this test showed that the routes were
+    missing. It is now the retest: the routes exist. What they do is tested in
+    tests/test_week12_remediation.py."""
 
-    def test_no_route_to_download_data_or_change_email_or_password(self):
-        """P-02 and P-03 confirmed: the account routes are only register, login,
-        logout, me and account deletion."""
+    def test_routes_to_download_data_and_change_email_and_password_exist(self):
+        """P-02 and P-03 retest: the account routes now include export, email and password."""
         account_routes = {
             rule.rule for rule in self.app.url_map.iter_rules()
             if rule.rule.startswith(("/api/me", "/api/account", "/api/register",
                                      "/api/login", "/api/logout"))
         }
         self.assertEqual(account_routes, {"/api/register", "/api/login", "/api/logout",
-                                          "/api/me", "/api/account/delete"})
-        for rule in self.app.url_map.iter_rules():
-            for word in ("export", "download", "password", "email"):
-                self.assertNotIn(word, rule.rule)
+                                          "/api/me", "/api/account/delete",
+                                          "/api/account/export", "/api/account/email",
+                                          "/api/account/password"})
 
 
 if __name__ == "__main__":

@@ -1,10 +1,11 @@
-"""Account routes: register, log in, log out, profile, delete account."""
+"""Account routes: register, log in, log out, profile, change password and
+email, download my data, delete account."""
 from flask import g, jsonify
 
 from . import bp, validation
 from .guards import login_required, roles_required
 from ..errors import LoginFailed
-from ..logic import accounts
+from ..logic import accounts, my_data
 from ..security import sessions
 
 
@@ -13,7 +14,7 @@ def register():
     """FR-01. Public: no login needed."""
     data = validation.json_body()
     email = validation.email(data)
-    password = validation.new_password(data)
+    password = validation.new_password(data, email=email)
     accounts.register_driver(email, password)
     return jsonify(message="Account created. You can now log in."), 201
 
@@ -63,4 +64,39 @@ def delete_account():
     accounts.delete_driver_account(g.user["id"], password)
     response = jsonify(message="Your account and its data have been deleted.")
     sessions.clear_cookie(response)
+    return response
+
+
+@bp.post("/account/password")
+@roles_required(accounts.DRIVER)
+def change_password():
+    """P-03, SR-06. Ends the driver's other sessions."""
+    data = validation.json_body()
+    current = validation.current_password(data, "current_password")
+    email = accounts.profile(g.user["id"])["email"]
+    new = validation.new_password(data, "new_password", email=email)
+    accounts.change_password(g.user["id"], current, new)
+    sessions.end_other_sessions(g.user["id"])
+    return jsonify(message="Your password has been changed. You were logged out on other devices.")
+
+
+@bp.post("/account/email")
+@roles_required(accounts.DRIVER)
+def change_email():
+    """P-03, F-08."""
+    data = validation.json_body()
+    password = validation.current_password(data)
+    email = validation.email(data)
+    accounts.change_email(g.user["id"], password, email)
+    return jsonify(message="Your email has been changed.", email=email)
+
+
+@bp.post("/account/export")
+@roles_required(accounts.DRIVER)
+def export_my_data():
+    """P-02: a copy of the driver's own data, as a JSON file."""
+    password = validation.current_password(validation.json_body())
+    response = jsonify(my_data.export_driver_data(g.user["id"], password))
+    response.headers["Content-Disposition"] = 'attachment; filename="my-smart-parking-data.json"'
+    response.headers["Cache-Control"] = "no-store"
     return response

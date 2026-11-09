@@ -86,6 +86,13 @@ def end():
         sessions_repo.delete(_hash(token))
 
 
+def end_other_sessions(user_id):
+    """Keep this request's session and end every other session of the user
+    (P-03: after a password change, a stolen session stops working)."""
+    token = _token_from_request()
+    sessions_repo.delete_for_user_except(user_id, _hash(token) if token else "")
+
+
 def set_cookie(response, token):
     # No max_age: the server-side timeout decides how long a session lasts.
     response.set_cookie(

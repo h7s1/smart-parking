@@ -30,10 +30,17 @@ class Config:
     BCRYPT_ROUNDS = 12
 
     # SR-06: at least 8 characters (the team's decision in Week 8). NIST SP
-    # 800-63B-4 asks for 15 when the password is the only factor; this is a
-    # known limitation (Week 9 secure coding review). Up to 64 characters.
+    # 800-63B-4 asks for 15 when the password is the only factor; the team
+    # accepted this (F-04, Week 11). Up to 64 characters.
     MIN_PASSWORD_LENGTH = 8
     MAX_PASSWORD_LENGTH = 64
+    # Since Week 12, a new password is also checked against a list of common
+    # and leaked passwords (app/security/password_blocklist.py), as NIST asks.
+
+    # F-08 (fixed in Week 12): the car park is for the employees of the
+    # companies in the business complex, so a driver must register with a work
+    # email from one of these domains. The domains here are synthetic.
+    ALLOWED_EMAIL_DOMAINS = ("smartparking.test",)
 
     # SR-02: block login for 15 minutes after 5 consecutive failed attempts.
     LOCKOUT_THRESHOLD = 5

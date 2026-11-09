@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from flask import current_app, request
 
 from ..errors import LoginFailed, NotFound, ValidationError
+from ..security import password_blocklist
 
 _EMAIL = re.compile(r"^[^@\s]{1,64}@[^@\s]{1,189}\.[A-Za-z]{2,24}$")
 _PLATE = re.compile(r"^[A-Z0-9]{2,10}$")
@@ -40,14 +41,17 @@ def email(data):
     return value
 
 
-def new_password(data):
-    """Password rules for registration (SR-06)."""
-    value = data.get("password")
+def new_password(data, field="password", email=None):
+    """Password rules for a new password (SR-06): 8 to 64 characters, and not
+    a common or easy-to-guess password (blocklist, added in Week 12)."""
+    value = data.get(field)
     low = current_app.config["MIN_PASSWORD_LENGTH"]
     high = current_app.config["MAX_PASSWORD_LENGTH"]
     if (not isinstance(value, str) or not low <= len(value) <= high
             or len(value.encode("utf-8")) > _BCRYPT_MAX_BYTES):
         raise ValidationError(f"The password must be {low} to {high} characters.")
+    if password_blocklist.is_easy_to_guess(value, email):
+        raise ValidationError("This password is too common or easy to guess. Choose another one.")
     return value
 
 
@@ -65,8 +69,8 @@ def login_details(data):
     return value, password
 
 
-def current_password(data):
-    value = data.get("password")
+def current_password(data, field="password"):
+    value = data.get(field)
     if not isinstance(value, str) or not value \
             or len(value.encode("utf-8")) > _BCRYPT_MAX_BYTES:
         raise ValidationError("Enter your password.")

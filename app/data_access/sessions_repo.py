@@ -51,3 +51,12 @@ def delete_started_before(cutoff):
         "DELETE FROM login_sessions WHERE created_at < ?", (cutoff,)
     )
     return cursor.rowcount
+
+
+def delete_for_user_except(user_id, keep_token_hash):
+    """End all the user's other sessions, for example on other computers,
+    after a password change (P-03)."""
+    get_db().execute(
+        "DELETE FROM login_sessions WHERE user_id = ? AND token_hash != ?",
+        (user_id, keep_token_hash),
+    )

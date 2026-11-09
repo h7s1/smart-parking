@@ -15,6 +15,17 @@ ADMIN = "ADMIN"
 SUPPORT_AGENT = "SUPPORT_AGENT"
 
 REGISTRATION_FAILED = "The account could not be created. If you already have one, log in instead."
+WORK_EMAIL_NEEDED = "Use the work email of your company in the business complex."
+EMAIL_NOT_USABLE = "This email cannot be used."
+
+
+def _check_work_email(email):
+    """F-08 (fixed in Week 12): the car park is only for the employees of the
+    companies in the business complex (Introduction: Scope), so a driver's
+    email must use one of the allowed domains in config.py."""
+    domain = email.rsplit("@", 1)[-1]
+    if domain not in current_app.config["ALLOWED_EMAIL_DOMAINS"]:
+        raise ValidationError(WORK_EMAIL_NEEDED)
 
 
 def _find_user_id(email):
@@ -56,7 +67,9 @@ def register_driver(email, password):
     """FR-01: public registration always creates a DRIVER account.
 
     The role is never read from the request, so nobody can register as an admin.
+    Since Week 12, only work emails of the business complex are accepted (F-08).
     """
+    _check_work_email(email)
     return _create_user(email, password, DRIVER)
 
 
@@ -134,3 +147,39 @@ def delete_driver_account(user_id, password):
             raise Conflict("The account cannot be deleted while one of your vehicles is parked.")
         users_repo.delete(user_id)      # cascades to vehicles, reservations, sessions, disputes
         audit.record(audit.ACCOUNT_DELETED, user_id=user_id, target_id=user_id)  # SR-11
+
+
+def _check_password(user_id, password):
+    user = users_repo.get(user_id)
+    if user is None or not passwords.verify_password(password, user["password_hash"]):
+        raise ValidationError("The password is not correct.")
+
+
+def change_password(user_id, current, new):
+    """P-03 (fixed in Week 12): a driver can change their password.
+
+    The current password is asked first. The new one has already passed the
+    SR-06 rules and the blocklist (api/validation.py). The caller then ends
+    the driver's other sessions, so a session stolen before the change stops
+    working.
+    """
+    _check_password(user_id, current)
+    users_repo.set_password_hash(user_id, passwords.hash_password(new))     # SR-13
+    audit.record(audit.PASSWORD_CHANGED, user_id=user_id, target_id=user_id)
+
+
+def change_email(user_id, password, new_email):
+    """P-03 (fixed in Week 12): a driver can correct their email.
+
+    The password is asked again, the new email must be a work email of the
+    complex (F-08), and it must not belong to another account. The message does
+    not say why an email cannot be used (SR-19).
+    """
+    _check_password(user_id, password)
+    _check_work_email(new_email)
+    with transaction(immediate=True):
+        owner = _find_user_id(new_email)
+        if owner is not None and owner != user_id:
+            raise ValidationError(EMAIL_NOT_USABLE)
+        users_repo.set_email(user_id, crypto.encrypt(new_email, crypto.EMAIL))   # PR-03
+        audit.record(audit.EMAIL_CHANGED, user_id=user_id, target_id=user_id)

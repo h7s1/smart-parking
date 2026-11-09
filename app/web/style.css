@@ -418,6 +418,37 @@ td .plate { font-size: 15px; padding: 1px 7px 0; border-width: 1.5px; }
 }
 .danger-zone[open] { padding-bottom: 6px; }
 
+/* ---------- Week 12: privacy notice and My account ---------- */
+
+.privacy-box {
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--sign-blue);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 12px 14px;
+  max-height: 260px;
+  overflow-y: auto;
+  font-size: 13px;
+}
+.privacy-box h3 { font-size: 17px; margin-bottom: 6px; }
+.privacy-box dl { margin: 0; }
+.privacy-box dt { font-weight: 700; margin-top: 8px; }
+.privacy-box dd { margin: 2px 0 0; color: var(--muted); }
+.check { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 14px; }
+.check input { width: 18px; height: 18px; accent-color: var(--sign-blue); }
+
+.account-zone {
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  padding: 0 22px;
+  background: var(--surface);
+}
+.account-zone summary { cursor: pointer; padding: 16px 0; font: 700 19px/1.2 var(--sign); }
+.account-zone[open] { padding-bottom: 22px; }
+.account-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px; }
+.account-grid h3 { font-size: 17px; }
+.account-grid .stack { gap: 12px; align-content: start; }
+
 /* ---------- Admin: lot map ---------- */
 
 .lot-section { display: grid; gap: 14px; }
@@ -543,7 +574,7 @@ td .plate { font-size: 15px; padding: 1px 7px 0; border-width: 1.5px; }
   .ticket-bay { font-size: 36px; }
   .ticket-body { padding: 18px 16px; }
   .two { grid-template-columns: 1fr; }
-  .danger-zone { padding: 0 16px; }
+  .danger-zone, .account-zone { padding: 0 16px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

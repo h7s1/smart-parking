@@ -40,6 +40,9 @@ const EVENTS = {
   DISPUTE_CLOSED: ["Dispute closed", ""],
   SUPPORT_ACCESS: ["Support viewed a disputed record", "support"],
   SUPPORT_ACCESS_DENIED: ["Support access refused", "alert"],
+  PASSWORD_CHANGED: ["Password changed", ""],
+  EMAIL_CHANGED: ["Email changed", ""],
+  DATA_EXPORTED: ["Driver downloaded their data", ""],
 };
 
 // ---------- Helpers ----------
@@ -221,6 +224,7 @@ $("register-form").addEventListener("submit", (event) => {
   event.preventDefault();
   run(async () => {
     const values = formData(event.target);
+    delete values.notice_read;          // the server needs only the email and password
     const data = await api("POST", "/register", values);
     event.target.reset();
     selectTab("login");
@@ -293,6 +297,8 @@ async function loadDriver() {
     remove.setAttribute("aria-label", "Remove " + v.plate);
     remove.append(icon("i-close"));
     remove.addEventListener("click", () => run(async () => {
+      // P-03 (Week 12): removing a car also deletes its reservations and visits.
+      if (!window.confirm("Remove " + v.plate + "? Its reservations and parking history will also be deleted. This cannot be undone.")) return;
       const data = await api("DELETE", "/vehicles/" + v.id);
       toast(data.message, false);
       await loadDriver();
@@ -405,6 +411,42 @@ $("dispute-form").addEventListener("submit", (event) => {
     const data = await api("POST", "/disputes", body);
     toast(data.message, false);
     await loadDriver();
+  });
+});
+
+// ---------- Driver: My account (Week 12: P-02, P-03) ----------
+
+$("email-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  run(async () => {
+    const data = await api("POST", "/account/email", formData(event.target));
+    event.target.reset();
+    $("who").textContent = data.email;
+    toast(data.message, false);
+  });
+});
+
+$("password-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  run(async () => {
+    const data = await api("POST", "/account/password", formData(event.target));
+    event.target.reset();
+    toast(data.message, false);
+  });
+});
+
+$("export-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  run(async () => {
+    const data = await api("POST", "/account/export", formData(event.target));
+    event.target.reset();
+    const file = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(file);
+    link.download = "my-smart-parking-data.json";
+    link.click();
+    URL.revokeObjectURL(link.href);
+    toast("Your data has been downloaded.", false);
   });
 });
 

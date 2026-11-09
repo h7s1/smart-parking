@@ -28,6 +28,22 @@ def get(user_id):
     ).fetchone()
 
 
+def get_account_details(user_id):
+    """The fields a driver gets in "Download my data" (P-02)."""
+    return get_db().execute(
+        "SELECT email_enc, role, created_at, last_login_at FROM users WHERE id = ?",
+        (user_id,),
+    ).fetchone()
+
+
+def set_password_hash(user_id, password_hash):
+    get_db().execute("UPDATE users SET password_hash = ? WHERE id = ?", (password_hash, user_id))
+
+
+def set_email(user_id, email_enc):
+    get_db().execute("UPDATE users SET email_enc = ? WHERE id = ?", (email_enc, user_id))
+
+
 def set_failed_logins(user_id, failed_logins, locked_until):
     get_db().execute(
         "UPDATE users SET failed_logins = ?, locked_until = ? WHERE id = ?",
