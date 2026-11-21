@@ -581,3 +581,10 @@ td .plate { font-size: 15px; padding: 1px 7px 0; border-width: 1.5px; }
   .toast { animation: none; }
   .btn { transition: none; }
 }
+
+/* ---------- Week 13: line up side-by-side forms ---------- */
+
+/* The three My account forms are as tall as the tallest one, and each button
+   sits at the bottom, so the buttons are on one line even when a form has a hint. */
+.account-grid .stack { display: flex; flex-direction: column; gap: 12px; }
+.account-grid .stack .btn { margin-top: auto; }
