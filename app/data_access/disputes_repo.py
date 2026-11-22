@@ -25,6 +25,18 @@ def has_open_for_record(reservation_id, parking_session_id):
     return row["n"] > 0
 
 
+def has_open_for_vehicle(vehicle_id):
+    """True if a reservation or parking session of this vehicle has an open dispute."""
+    row = get_db().execute(
+        "SELECT COUNT(*) AS n FROM disputes d"
+        " LEFT JOIN reservations r ON r.id = d.reservation_id"
+        " LEFT JOIN parking_sessions p ON p.id = d.parking_session_id"
+        " WHERE d.status = 'OPEN' AND (r.vehicle_id = ? OR p.vehicle_id = ?)",
+        (vehicle_id, vehicle_id),
+    ).fetchone()
+    return row["n"] > 0
+
+
 def list_for_driver(driver_id):
     return get_db().execute(
         "SELECT id, driver_id, reservation_id, parking_session_id, reason, status, created_at,"

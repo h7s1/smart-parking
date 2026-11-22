@@ -1,11 +1,12 @@
-# Smart Parking System (T4): Code Snapshot 2
+# Smart Parking System (T4): Final Prototype
 
-SW 341 Software Security Engineering · Group 4 · Section O53 · Week 9
+SW 341 Software Security Engineering · Group 4 · Section O53 · Week 13
 
 Code Snapshot 1 (Week 8) covered authentication, roles, the API and the
 database. Code Snapshot 2 adds the rest of the design: the **gate simulator
 and gate decision**, **disputes and support agent access**, the **simulated
-confirmation email** and the **cleanup job**. All data is synthetic.
+confirmation email** and the **cleanup job**. Weeks 11 to 13 added the
+review fixes and the remediation (see the test files below). All data is synthetic.
 
 ## Run it
 
@@ -78,7 +79,7 @@ would be sent (FR-08), with most of the address hidden.
 python -m unittest discover -s tests -v
 ```
 
-145 tests. Each test names the requirement it checks, and tests marked
+148 tests. Each test names the requirement it checks, and tests marked
 "(negative)" try an attack and confirm the system refuses it.
 
 `tests/test_week11_findings.py` (Week 11) checks the maximum session length
@@ -91,9 +92,14 @@ remediation phase: the password blocklist (SR-06, F-04), work emails only
 (F-08), the privacy notice (P-01), Download my data (P-02), and changing the
 email or password and the warning before removing a car (P-03).
 
-## Code structure (matches Figure 1 of the report)
+`tests/test_week13_fixes.py` (Week 13) retests the two fixes of the final
+review: a reservation or a vehicle with an open dispute cannot be cancelled
+or removed, so the dispute is not deleted with it (PR-08, SR-09), and a spot
+that is OCCUPIED now can be reserved for a later time (FR-06).
 
-| Folder or file | Layer (Figure 1) | What it does |
+## Code structure (matches Figure 3 of the report)
+
+| Folder or file | Layer (Figure 3) | What it does |
 |---|---|---|
 | `app/web/` | Presentation: web pages | Pages for drivers, the admin and support agents. Make no security decisions. Fonts are served locally (`app/web/fonts/`, GUST Font License), so the pages load nothing from other websites. |
 | `scripts/gate_simulator.py` | Presentation: gate simulator | Sends a plate and ENTRY or EXIT with the gate key; prints ALLOW or DENY. |
@@ -110,14 +116,14 @@ How one request moves through the layers, for example "cancel a reservation":
 
 1. `api/reservation_routes.py`: `@roles_required(DRIVER)` checks the session and the role (SR-03, SR-07).
 2. `api/validation.py`: `path_id()` checks that the ID is a valid UUID (SR-17).
-3. `logic/reservations.py`: `cancel()` applies the 30-minute rule (FR-07).
+3. `logic/reservations.py`: `cancel()` applies the 30-minute rule (FR-07) and refuses a reservation with an open dispute (PR-08).
 4. `data_access/reservations_repo.py`: the query includes `driver_id = ?`, so another driver's reservation is "Not found" (SR-08, SR-18).
 
-And a gate event (flow 2):
+And a gate event (Figure 7):
 
 1. `api/gate_routes.py`: `@gate_key_required` compares the `X-Gate-Key` header with the key from `.env` (SR-20).
 2. `api/validation.py`: the plate and direction are checked (SR-17).
-3. `logic/gate.py`: the plate is used to find the vehicle, then dropped (PR-01). With a reservation covering now and a FREE spot, the answer is ALLOW, a parking session is added (FR-10) and the spot becomes OCCUPIED.
+3. `logic/gate.py`: the plate is used only to find the vehicle, and is not stored, logged or used after that lookup (PR-01). With a reservation covering now and a FREE spot, the answer is ALLOW, a parking session is added (FR-10) and the spot becomes OCCUPIED.
 
 ## Requirements implemented
 
@@ -126,11 +132,12 @@ And a gate event (flow 2):
 | FR-01 register as DRIVER only | `logic/accounts.py` `register_driver` | test_authentication |
 | FR-02 session gets the user's role | `security/sessions.py`, `data_access/sessions_repo.py` | test_authentication |
 | FR-03 delete account | `logic/accounts.py` `delete_driver_account` | test_authentication |
-| FR-04, FR-05 add and remove vehicles | `logic/vehicles.py` | test_parking |
-| FR-06, FR-07 reserve and cancel | `logic/reservations.py` | test_parking |
+| FR-04, FR-05 add and remove vehicles (not while parked or with an open dispute) | `logic/vehicles.py` | test_parking, test_week13_fixes |
+| FR-06, FR-07 reserve a spot that is not DISABLED, and cancel (not with an open dispute) | `logic/reservations.py` | test_parking, test_week13_fixes |
 | FR-08 confirmation email (simulated) | `notification.py`, called by `logic/reservations.py` | test_notification |
 | FR-09, FR-10, FR-11 gate decision, entry, exit | `logic/gate.py`, `api/gate_routes.py` | test_gate |
 | FR-12, FR-13, FR-14 admin spots and audit log | `logic/admin.py` | test_parking, test_authorization, test_gate |
+| FR-18, FR-19, FR-20 change email, change password, Download my data (password asked again) | `logic/accounts.py`, `logic/my_data.py`, `api/auth_routes.py` | test_week12_remediation |
 | FR-15, FR-16, FR-17 disputes | `logic/disputes.py`, `api/dispute_routes.py`, `api/support_routes.py` | test_disputes |
 | NFR-01 login within 2 seconds | `logic/accounts.py` (bcrypt work factor 12) | test_authentication |
 | NFR-02 gate answer within 2 seconds | `logic/gate.py` (one short transaction) | test_gate |
@@ -160,13 +167,15 @@ And a gate event (flow 2):
 | SR-20 gate key on every gate event | `api/guards.py` `gate_key_required`, `config.py` | test_gate, test_input_and_errors |
 | SR-21 key outside code and database | `config.py`, `.env`, `.gitignore` | test_input_and_errors |
 | SR-22 60 requests per minute | `security/rate_limit.py` | test_input_and_errors |
-| PR-01 plate dropped after the gate decision | `logic/gate.py` `decide` | test_gate |
+| PR-01 plate used only to look up the vehicle, then not stored, logged or used | `logic/gate.py` `decide` | test_gate |
 | PR-02 no names, phones or GPS | `schema.sql` has no such columns; dispute reasons from a fixed list | test_disputes (by design) |
 | PR-03, PR-04 email and plate encrypted | `security/crypto.py` (AES-256-GCM) | test_authentication, test_parking |
 | PR-05, PR-06 IDs only in sessions and audit log | `schema.sql`, `security/audit.py` | test_gate, test_disputes |
+| SR-24 Content-Security-Policy and plain-text output (XSS, TH-15) | `app/__init__.py` `security_headers`, `web/app.js` (textContent) | test_input_and_errors |
+| SR-25 data-changing requests only as JSON (CSRF, TH-16) | `app/__init__.py` `protect_api` | test_input_and_errors |
 | PR-07 to PR-10 retention periods | `cleanup.py`, `delete_expired()` in `data_access/` | test_cleanup |
 | PR-11 deleting the account deletes the data | `ON DELETE CASCADE` in `schema.sql` | test_authentication, test_disputes |
-| Data map: 12 months without login | `cleanup.py`, `users_repo.list_inactive` | test_cleanup |
+| PR-12 accounts of any role deleted after 12 months without a login | `cleanup.py`, `users_repo.list_inactive` | test_cleanup |
 | F-08 only work emails of the complex (Week 12) | `logic/accounts.py` `_check_work_email`, `config.py` `ALLOWED_EMAIL_DOMAINS` | test_week11_findings, test_week12_remediation |
 | P-01 privacy notice before registration (Week 12) | `web/index.html` (Create account tab) | test_week12_remediation |
 | P-02 Download my data (Week 12) | `logic/my_data.py`, `POST /api/account/export` | test_week12_remediation |
@@ -176,11 +185,10 @@ Requirement and threat IDs follow the numbering of the comprehensive project
 report. SR-04 to SR-06 were added in Week 8 (logout, idle timeout, password
 length), and so was TH-05 (session reuse); the IDs after them moved down.
 
-**Extra hardening (not numbered requirements).** Two protections stay in the
-code although they are not in the requirement list: requests that change data
-must be JSON (with the SameSite cookie, this blocks cross-site request forgery;
-`app/__init__.py` `protect_api`), and database triggers stop any change to an
-audit entry or its deletion before 180 days (`schema.sql`). Both have tests.
+**Extra hardening (not a numbered requirement).** Database triggers stop any
+change to an audit entry or its deletion before 180 days (`schema.sql`). It has
+tests. The JSON-only rule, which was listed here until Week 12, became SR-25 in
+Week 13.
 
 ## Decisions made while building Week 9 (accepted by the team)
 
@@ -200,10 +208,12 @@ Week 9; where a decision changed the design, the report was updated.
    A session whose car is still inside is kept until the car leaves. An
    account whose car is parked is not deleted for inactivity. Inactive
    accounts of any role are deleted after 12 months, as the data map says.
-6. **Closed disputes go with their record.** When a reservation or parking
-   session reaches the end of its retention, the closed disputes about it are
-   deleted with it (cascade), which can be sooner than 90 days after closing.
-   PR-09 and the Personal Data Map were reworded to say so.
+6. **Disputes go with their record.** When a reservation or parking session
+   is deleted, its disputes are deleted with it (cascade), which can be sooner
+   than 90 days after closing. PR-09 and the Personal Data Map were reworded
+   to say so. Since Week 13, a driver cannot cancel a reservation or remove a
+   vehicle while one of its records has an open dispute, so an open dispute is
+   never deleted this way (only by deleting the whole account, PR-11).
 7. **A support agent sees only the disputed record.** While a dispute is
    open, the support agent sees the one reservation or parking session it is
    about and the plate of that record's car, and nothing else about the
@@ -240,6 +250,10 @@ Week 9; where a decision changed the design, the report was updated.
   second factor. Since Week 12, new passwords are checked against a blocklist,
   but the list in `security/common_passwords.txt` is small; a real system would
   use a much larger list or a breached-password service.
+* **No block for a wrong password asked again.** Changing the email or
+  password, Download my data and deleting the account ask for the password
+  again, but wrong answers there do not count towards the login block (SR-02);
+  only the request limit (SR-22) slows guessing with a stolen session.
 * **Work email domains.** The allowed domains are a fixed list in `config.py`
   and the email is not verified, so someone who knows a work email can still
   register with it. A real system would send a confirmation link.

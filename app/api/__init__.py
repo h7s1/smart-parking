@@ -1,4 +1,4 @@
-"""API layer (Figure 1): the single entry point for the web pages and the gate.
+"""API layer (Figure 3): the single entry point for the web pages and the gate.
 
 Each route: checks the session and role, or the gate key (guards.py),
 validates the input (validation.py), then calls the business logic.

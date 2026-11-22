@@ -1,4 +1,4 @@
-"""Gate simulator (Figure 1): pretends to be the camera at the parking gate.
+"""Gate simulator (Figure 3): pretends to be the camera at the parking gate.
 
 It sends a license plate and a direction to the server over HTTPS, with the
 gate key from .env (SR-20), and prints the answer (ALLOW or DENY) and how long

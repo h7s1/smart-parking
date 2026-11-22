@@ -1,4 +1,4 @@
-"""Gate route (Figure 2, flow 2): used by the gate simulator, not by the web pages."""
+"""Gate route (Figures 4 and 7): used by the gate simulator, not by the web pages."""
 from flask import jsonify
 
 from . import bp, validation

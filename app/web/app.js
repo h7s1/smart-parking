@@ -1,4 +1,4 @@
-// Smart Parking web pages (Presentation layer, Figure 1).
+// Smart Parking web pages (Presentation layer, Figure 3).
 //
 // Security notes:
 //  * This page makes no security decisions. Hiding a section here is only for
@@ -326,7 +326,7 @@ async function loadDriver() {
     option.append(input, el("span", "", s.label));
     picker.append(option);
   });
-  if (spots.length === 0) picker.append(el("p", "empty", "No free bays right now."));
+  if (spots.length === 0) picker.append(el("p", "empty", "No bays can be reserved right now."));
   prefillTimes();
 
   // Reservations: cancel is offered only while it is still allowed (FR-07).

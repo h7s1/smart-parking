@@ -1,14 +1,14 @@
-"""Cleanup job (Figure 1, flow 9): deletes records whose retention period has ended.
+"""Cleanup job (Figures 3 and 4): deletes records whose retention period has ended.
 
   PR-07  parking sessions 90 days after entry, unless linked to an open dispute
   PR-08  reservations 30 days after they end, unless linked to an open dispute
   PR-09  disputes 90 days after they are closed, or sooner with their record
   PR-10  audit log entries 180 days after they are created
-  Data map: accounts after 12 months without a login, and login sessions that
+  PR-12  accounts of any role after 12 months without a login, and sessions that
   have expired (SR-05, SR-23)
 
-Deleting a reservation or parking session also deletes the closed disputes
-about it (ON DELETE CASCADE in schema.sql).
+Deleting a reservation or parking session also deletes its disputes (ON DELETE
+CASCADE); a driver cannot cancel or remove a record while its dispute is open.
 
 run.py starts the job when the server starts and then once a day. It can also
 be run by hand:  python scripts/run_cleanup.py

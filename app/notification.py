@@ -1,4 +1,4 @@
-"""Notification service (Figure 1, flow 10): the reservation confirmation email (FR-08).
+"""Notification service (Figures 3 and 4): the reservation confirmation email (FR-08).
 
 The prototype does not send real email. The default sender prints a simulated
 email to the server console, with most of the address hidden, and stores

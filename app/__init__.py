@@ -55,7 +55,7 @@ def create_app(test_config=None):
         # SR-22: request limit per client.
         if not limiter.allow(request.remote_addr or "unknown", clock.now()):
             return _error(429, _HTTP_MESSAGES[429])
-        # Extra hardening (not a numbered requirement): requests that change
+        # SR-25 (added in Week 13): requests that change
         # data must be JSON. A form on another website cannot send JSON to this
         # server, which, together with the SameSite cookie, blocks cross-site
         # request forgery.
@@ -65,7 +65,7 @@ def create_app(test_config=None):
 
     @app.after_request
     def security_headers(response):
-        response.headers["Content-Security-Policy"] = (
+        response.headers["Content-Security-Policy"] = (   # SR-24
             "default-src 'self'; object-src 'none'; base-uri 'none'; "
             "frame-ancestors 'none'; form-action 'self'"
         )

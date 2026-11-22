@@ -68,12 +68,12 @@ class Config:
     # Reject request bodies larger than 16 KB (input handling, SR-17).
     MAX_CONTENT_LENGTH = 16 * 1024
 
-    # Retention periods from the Personal Data Map (PR-07 to PR-10).
+    # Retention periods from the Personal Data Map (PR-07 to PR-10, PR-12).
     PARKING_SESSION_RETENTION_DAYS = 90      # PR-07, after the entry time
     RESERVATION_RETENTION_DAYS = 30          # PR-08, after the reservation ends
     DISPUTE_RETENTION_DAYS = 90              # PR-09, after the dispute is closed
     AUDIT_RETENTION_DAYS = 180               # PR-10, after the entry is created
-    INACTIVE_ACCOUNT_DAYS = 365              # data map: 12 months without a login
+    INACTIVE_ACCOUNT_DAYS = 365              # PR-12: 12 months without a login, any role
 
     # The cleanup job runs when the server starts and then once a day (flow 9).
     CLEANUP_INTERVAL_HOURS = 24

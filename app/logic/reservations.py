@@ -5,21 +5,27 @@ from datetime import timedelta
 from flask import current_app
 
 from .. import clock, notification
-from ..data_access import reservations_repo, spots_repo, vehicles_repo
+from ..data_access import disputes_repo, reservations_repo, spots_repo, vehicles_repo
 from ..data_access.db import transaction
 from ..errors import Conflict, NotFound, ValidationError
 
 
 def list_free_spots():
-    """Spots a driver can choose from. Shows no information about other drivers."""
+    """Spots a driver can choose from: every spot that is not DISABLED. A spot
+    that is OCCUPIED now can still be free at the chosen time; the overlap
+    check in create() decides. Shows no information about other drivers."""
     return [
         {"id": row["id"], "label": row["label"]}
-        for row in spots_repo.list_with_status("FREE")
+        for row in spots_repo.list_all()
+        if row["status"] != "DISABLED"
     ]
 
 
 def create(driver_id, vehicle_id, spot_id, start, end):
-    """FR-06: reserve a spot with status FREE for a start and end time."""
+    """FR-06: reserve a spot that is not DISABLED for a start and end time.
+    The spot's status now does not matter for a later time: a spot that is
+    OCCUPIED now can be reserved for when it is free. The gate still lets the
+    car in only if the spot is FREE when it arrives (FR-09)."""
     max_hours = current_app.config["MAX_RESERVATION_HOURS"]
     if start <= clock.now():
         raise ValidationError("The start time must be in the future.")
@@ -39,7 +45,7 @@ def create(driver_id, vehicle_id, spot_id, start, end):
         spot = spots_repo.get(spot_id)
         if spot is None:
             raise NotFound()
-        if spot["status"] != "FREE":
+        if spot["status"] == "DISABLED":
             raise Conflict("This spot cannot be reserved right now.")
         if reservations_repo.count_overlapping(spot_id, start_db, end_db) > 0:
             raise Conflict("This spot is already reserved for part of that time.")
@@ -74,13 +80,21 @@ def list_for_driver(driver_id):
 
 
 def cancel(driver_id, reservation_id):
-    """FR-07: a driver can cancel their own reservation up to 30 minutes before it starts."""
-    row = reservations_repo.get_for_driver(reservation_id, driver_id)
-    if row is None:
-        raise NotFound()                           # not this driver's reservation (SR-08)
+    """FR-07: a driver can cancel their own reservation up to 30 minutes before it starts.
+    A reservation with an open dispute cannot be cancelled: deleting it would
+    also delete the dispute (ON DELETE CASCADE) while the support agent still
+    needs it. It is kept until the dispute is closed (Personal Data Map, PR-08)."""
     minutes = current_app.config["CANCEL_DEADLINE_MINUTES"]
-    if clock.from_db(row["start_time"]) - clock.now() < timedelta(minutes=minutes):
-        raise Conflict(
-            f"A reservation can only be cancelled up to {minutes} minutes before it starts."
-        )
-    reservations_repo.delete_for_driver(reservation_id, driver_id)
+    with transaction(immediate=True):
+        row = reservations_repo.get_for_driver(reservation_id, driver_id)
+        if row is None:
+            raise NotFound()                       # not this driver's reservation (SR-08)
+        if clock.from_db(row["start_time"]) - clock.now() < timedelta(minutes=minutes):
+            raise Conflict(
+                f"A reservation can only be cancelled up to {minutes} minutes before it starts."
+            )
+        if disputes_repo.has_open_for_record(reservation_id, None):
+            raise Conflict(
+                "This reservation has an open dispute. It can be cancelled after the dispute is closed."
+            )
+        reservations_repo.delete_for_driver(reservation_id, driver_id)

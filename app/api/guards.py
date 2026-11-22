@@ -1,4 +1,4 @@
-"""Checks that run before a protected API function (Figure 1: the API is the
+"""Checks that run before a protected API function (Figure 3: the API is the
 single entry point, and the privilege boundary sits here).
 
   login_required     -> SR-03: a valid server-side session is required.

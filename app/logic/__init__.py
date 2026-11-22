@@ -1,4 +1,4 @@
-"""Business logic (Figure 1): accounts, vehicles, reservations, gate decision,
+"""Business logic (Figure 3): accounts, vehicles, reservations, gate decision,
 disputes and spot management.
 
 Functions here receive the logged-in user's ID from the API layer. That ID
